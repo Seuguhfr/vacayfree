@@ -206,6 +206,7 @@ export interface TranslationDictionary {
   addNoteOptional: string;
   notePlaceholder: string;
   saveNoteBtn: string;
+  deleteNoteBtn: string;
 
   // Cloud Quota Notice
   cloudQuotaTitle: string;

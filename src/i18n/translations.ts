@@ -228,9 +228,10 @@ export const fr: TranslationDictionary = {
 
   // Day Note Modal
   yourStatusForDay: 'Votre statut pour ce jour',
-  addNoteOptional: 'Ajouter une note (Facultatif)',
+  addNoteOptional: 'Ajouter une note',
   notePlaceholder: 'Ex. Train le soir, dispo l’après-midi uniquement...',
-  saveNoteBtn: 'Enregistrer la note',
+  saveNoteBtn: 'Enregistrer',
+  deleteNoteBtn: 'Supprimer',
 
   // Cloud Quota Notice
   cloudQuotaTitle: 'Synchronisation Cloud temporairement en pause',
@@ -464,9 +465,10 @@ export const en: TranslationDictionary = {
 
   // Day Note Modal
   yourStatusForDay: 'Your Status for this day',
-  addNoteOptional: 'Add a Note (Optional)',
+  addNoteOptional: 'Add a note',
   notePlaceholder: 'e.g., Evening flight, only free afternoon...',
-  saveNoteBtn: 'Save Note',
+  saveNoteBtn: 'Save',
+  deleteNoteBtn: 'Delete',
 
   // Cloud Quota Notice
   cloudQuotaTitle: 'Cloud Sync Temporarily Paused',

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   parseISO,
   format,
@@ -79,6 +79,18 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     status: 'available',
     note: '',
   });
+
+  useEffect(() => {
+    const noteDate = new URLSearchParams(window.location.search).get('noteDate');
+    if (noteDate) {
+      setNoteModal({
+        isOpen: true,
+        dateStr: noteDate,
+        status: localAvail[noteDate]?.status || 'available',
+        note: localAvail[noteDate]?.note || '',
+      });
+    }
+  }, []);
 
   // Sync when participant or response changes, preserving uncommitted brushstrokes
   React.useEffect(() => {
