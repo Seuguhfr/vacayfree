@@ -1,5 +1,5 @@
 // Cloudflare Pages Function for High-Concurrency, Zero-Collision Group Vacation Sync
-// Backed by Cloudflare KV ("VACAY_KV") with discrete per-participant keys and server-side salted PIN hashing.
+// Backed by Cloudflare KV ("VACAY_KV") with atomic discrete per-participant keys and server-side salted PIN hashing.
 
 interface Env {
   VACAY_KV?: KVNamespace;
@@ -7,7 +7,6 @@ interface Env {
 
 const SALT_PEPPER = 'vacay_salt_sec_2026';
 const ID_REGEX = /^[a-zA-Z0-9_-]{3,64}$/;
-const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 async function hashString(input: string): Promise<string> {
   const msgUint8 = new TextEncoder().encode(input.trim());
@@ -43,38 +42,18 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
 
   try {
-    // 1. Fetch metadata & participant index
-    const [metaRaw, participantsRaw] = await Promise.all([
-      context.env.VACAY_KV.get(`event:${eventId}:meta`),
-      context.env.VACAY_KV.get(`event:${eventId}:participants`),
-    ]);
-
+    // 1. Fetch metadata
+    const metaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);
     let event: any = null;
-    let participants: any[] = [];
-    let responses: any[] = [];
 
     if (metaRaw) {
       event = JSON.parse(metaRaw);
-      participants = participantsRaw ? JSON.parse(participantsRaw) : [];
-
-      // 2. Concurrently fetch each friend's response independently
-      if (participants.length > 0) {
-        const responsePromises = participants.map((p: any) =>
-          context.env.VACAY_KV!.get(`event:${eventId}:response:${p.id}`)
-        );
-        const fetchedResponses = await Promise.all(responsePromises);
-        responses = fetchedResponses
-          .filter((r): r is string => !!r)
-          .map((r) => JSON.parse(r));
-      }
     } else {
       // Legacy fallback check
       const legacyRaw = await context.env.VACAY_KV.get(`event_${eventId}`);
       if (legacyRaw) {
         const legacy = JSON.parse(legacyRaw);
         event = legacy.event;
-        participants = legacy.participants || [];
-        responses = legacy.responses || [];
       }
     }
 
@@ -85,7 +64,53 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       });
     }
 
-    // 3. SECURITY SANITIZATION:
+    // 2. Concurrently fetch participants using discrete keys + legacy index
+    const [partKeyList, participantsIndexRaw] = await Promise.all([
+      context.env.VACAY_KV.list({ prefix: `event:${eventId}:participant:` }),
+      context.env.VACAY_KV.get(`event:${eventId}:participants`),
+    ]);
+
+    const participantMap = new Map<string, any>();
+
+    // Load from index if present
+    if (participantsIndexRaw) {
+      try {
+        const list = JSON.parse(participantsIndexRaw);
+        if (Array.isArray(list)) {
+          for (const p of list) {
+            if (p?.id) participantMap.set(p.id, p);
+          }
+        }
+      } catch {}
+    }
+
+    // Load from discrete atomic keys (metadata or gets)
+    if (partKeyList.keys && partKeyList.keys.length > 0) {
+      const discreteGets = partKeyList.keys.map(async (k) => {
+        if (k.metadata) return k.metadata;
+        const val = await context.env.VACAY_KV!.get(k.name);
+        return val ? JSON.parse(val) : null;
+      });
+      const fetchedParts = await Promise.all(discreteGets);
+      for (const p of fetchedParts) {
+        if (p?.id) {
+          participantMap.set(p.id, { ...(participantMap.get(p.id) || {}), ...p });
+        }
+      }
+    }
+
+    const participants = Array.from(participantMap.values());
+
+    // 3. Concurrently fetch each friend's response independently
+    const responsePromises = participants.map((p: any) =>
+      context.env.VACAY_KV!.get(`event:${eventId}:response:${p.id}`)
+    );
+    const fetchedResponses = await Promise.all(responsePromises);
+    const responses = fetchedResponses
+      .filter((r): r is string => !!r)
+      .map((r) => JSON.parse(r));
+
+    // 4. SECURITY SANITIZATION:
     // Strip pinHash and adminKeyHash so client DevTools Network inspector never sees hashes!
     const sanitizedParticipants = participants.map((p: any) => ({
       ...p,
@@ -166,13 +191,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return new Response(JSON.stringify({ valid: false }), { status: 400 });
       }
 
-      const partsRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
-      if (!partsRaw) {
-        return new Response(JSON.stringify({ valid: false }), { status: 404 });
+      const partKey = `event:${eventId}:participant:${participantId}`;
+      const pRaw = await context.env.VACAY_KV.get(partKey);
+      let p = pRaw ? JSON.parse(pRaw) : null;
+      if (!p) {
+        const partsIndexRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
+        if (partsIndexRaw) {
+          try {
+            const arr = JSON.parse(partsIndexRaw);
+            p = arr.find((x: any) => x.id === participantId) || null;
+          } catch {}
+        }
       }
 
-      const parts = JSON.parse(partsRaw);
-      const p = parts.find((x: any) => x.id === participantId);
       if (!p) {
         return new Response(JSON.stringify({ valid: false }), { status: 404 });
       }
@@ -204,14 +235,23 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return new Response(JSON.stringify({ error: 'Unauthorized: Invalid admin key' }), { status: 401 });
       }
 
-      const partsRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
-      if (partsRaw) {
-        const parts = JSON.parse(partsRaw);
+      const partKey = `event:${eventId}:participant:${participantId}`;
+      const pRaw = await context.env.VACAY_KV.get(partKey);
+      let p = pRaw ? JSON.parse(pRaw) : null;
+      if (!p) {
+        const partsIndexRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
+        if (partsIndexRaw) {
+          try {
+            const arr = JSON.parse(partsIndexRaw);
+            p = arr.find((x: any) => x.id === participantId) || null;
+          } catch {}
+        }
+      }
+
+      if (p) {
         const pinHash = await hashParticipantPin(eventId, participantId, newPin);
-        const updatedParts = parts.map((part: any) =>
-          part.id === participantId ? { ...part, pinHash } : part
-        );
-        await context.env.VACAY_KV.put(`event:${eventId}:participants`, JSON.stringify(updatedParts), { expirationTtl: ttl });
+        p.pinHash = pinHash;
+        await context.env.VACAY_KV.put(partKey, JSON.stringify(p), { metadata: p, expirationTtl: ttl });
       }
 
       return new Response(JSON.stringify({ success: true, participantId }), {
@@ -219,7 +259,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       });
     }
 
-    // CASE 4: Concurrency-Safe Participant Delta Save
+    // CASE 4: Concurrency-Safe Participant Delta Save (Atomic Discrete Keys!)
     if (payload.action === 'save_response') {
       const { eventId, participant, response, pin } = payload;
       if (!eventId || !participant?.id || !response || !ID_REGEX.test(eventId)) {
@@ -235,41 +275,53 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         }
       }
 
-      // Verify participant PIN if returning user
-      const participantsRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
-      let participants: any[] = participantsRaw ? JSON.parse(participantsRaw) : [];
-      const existing = participants.find((p: any) => p.id === participant.id);
+      // Discrete participant lookup: Zero race conditions!
+      const partKey = `event:${eventId}:participant:${participant.id}`;
+      const existingRaw = await context.env.VACAY_KV.get(partKey);
+      let existing = existingRaw ? JSON.parse(existingRaw) : null;
+
+      if (!existing) {
+        const partsIndexRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
+        if (partsIndexRaw) {
+          try {
+            const arr = JSON.parse(partsIndexRaw);
+            existing = arr.find((p: any) => p.id === participant.id) || null;
+          } catch {}
+        }
+      }
 
       const computedHash = pin ? await hashParticipantPin(eventId, participant.id, pin) : '';
 
       if (existing) {
-        // If participant exists and has a pinHash, enforce pin match
+        // Enforce PIN validation if returning user
         if (existing.pinHash && existing.pinHash !== computedHash) {
           const legacyHash = pin ? await hashString(pin) : '';
           if (existing.pinHash !== legacyHash) {
             return new Response(JSON.stringify({ error: 'Incorrect PIN' }), { status: 401 });
           }
         }
-      } else {
-        // Register new participant in index
-        participants.push({
-          ...participant,
-          name: (participant.name || 'Friend').slice(0, 50),
-          pinHash: computedHash || participant.pinHash,
-        });
-        await context.env.VACAY_KV.put(
-          `event:${eventId}:participants`,
-          JSON.stringify(participants),
-          { expirationTtl: ttl }
-        );
       }
 
-      // Discrete independent key: Write ONLY this friend's response!
-      await context.env.VACAY_KV.put(
-        `event:${eventId}:response:${participant.id}`,
-        JSON.stringify(response),
-        { expirationTtl: ttl }
-      );
+      const participantRecord = {
+        ...(existing || {}),
+        ...participant,
+        name: (participant.name || 'Friend').slice(0, 50),
+        pinHash: computedHash || existing?.pinHash || participant.pinHash || '',
+      };
+
+      // Atomic independent writes: Zero collisions between simultaneous participants!
+      await Promise.all([
+        context.env.VACAY_KV.put(
+          partKey,
+          JSON.stringify(participantRecord),
+          { metadata: participantRecord, expirationTtl: ttl }
+        ),
+        context.env.VACAY_KV.put(
+          `event:${eventId}:response:${participant.id}`,
+          JSON.stringify(response),
+          { expirationTtl: ttl }
+        ),
+      ]);
 
       return new Response(JSON.stringify({ success: true, participantId: participant.id }), {
         headers: { 'Content-Type': 'application/json' },
@@ -296,20 +348,22 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return new Response(JSON.stringify({ error: 'Unauthorized: Invalid admin key' }), { status: 401 });
       }
 
-      // Delete participants and responses
-      const participantsRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
-      if (participantsRaw) {
-        const parts = JSON.parse(participantsRaw);
-        await Promise.all(
-          parts.map((p: any) => context.env.VACAY_KV!.delete(`event:${eventId}:response:${p.id}`))
-        );
-      }
+      // Cleanly purge all discrete participant and response keys
+      const [partKeys, respKeys] = await Promise.all([
+        context.env.VACAY_KV.list({ prefix: `event:${eventId}:participant:` }),
+        context.env.VACAY_KV.list({ prefix: `event:${eventId}:response:` }),
+      ]);
 
-      await Promise.all([
+      const delPromises: Promise<any>[] = [
         context.env.VACAY_KV.delete(`event:${eventId}:meta`),
         context.env.VACAY_KV.delete(`event:${eventId}:participants`),
         context.env.VACAY_KV.delete(`event_${eventId}`),
-      ]);
+      ];
+
+      for (const k of partKeys.keys) delPromises.push(context.env.VACAY_KV.delete(k.name));
+      for (const k of respKeys.keys) delPromises.push(context.env.VACAY_KV.delete(k.name));
+
+      await Promise.all(delPromises);
 
       return new Response(JSON.stringify({ success: true, deleted: eventId }), {
         headers: { 'Content-Type': 'application/json' },
@@ -335,13 +389,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return new Response(JSON.stringify({ error: 'Unauthorized: Invalid admin key' }), { status: 401 });
       }
 
-      // Remove from participants list and delete response
-      const participantsRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
-      if (participantsRaw) {
-        const parts = JSON.parse(participantsRaw).filter((p: any) => p.id !== participantId);
-        await context.env.VACAY_KV.put(`event:${eventId}:participants`, JSON.stringify(parts), { expirationTtl: ttl });
-      }
-      await context.env.VACAY_KV.delete(`event:${eventId}:response:${participantId}`);
+      // Delete discrete participant and response keys
+      await Promise.all([
+        context.env.VACAY_KV.delete(`event:${eventId}:participant:${participantId}`),
+        context.env.VACAY_KV.delete(`event:${eventId}:response:${participantId}`),
+      ]);
 
       return new Response(JSON.stringify({ success: true, removed: participantId }), {
         headers: { 'Content-Type': 'application/json' },
@@ -403,29 +455,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // Save participant index (smart merge to prevent clobbering concurrent registrations)
+    // Save participants as discrete atomic keys
     if (payload.participants && Array.isArray(payload.participants)) {
-      const existingRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
-      let merged = payload.participants;
-      if (existingRaw) {
-        try {
-          const existingList = JSON.parse(existingRaw);
-          if (Array.isArray(existingList)) {
-            const map = new Map<string, any>();
-            for (const p of existingList) {
-              map.set(p.id, p);
-            }
-            for (const p of payload.participants) {
-              map.set(p.id, { ...(map.get(p.id) || {}), ...p });
-            }
-            merged = Array.from(map.values());
-          }
-        } catch {}
-      }
-      await context.env.VACAY_KV.put(
-        `event:${eventId}:participants`,
-        JSON.stringify(merged),
-        { expirationTtl: ttl }
+      await Promise.all(
+        payload.participants.map((p: any) => {
+          if (!p?.id) return Promise.resolve();
+          const partKey = `event:${eventId}:participant:${p.id}`;
+          return context.env.VACAY_KV!.put(
+            partKey,
+            JSON.stringify(p),
+            { metadata: p, expirationTtl: ttl }
+          );
+        })
       );
     }
 
@@ -480,19 +521,22 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
     return new Response(JSON.stringify({ error: 'Unauthorized: Invalid admin key' }), { status: 401 });
   }
 
-  const participantsRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
-  if (participantsRaw) {
-    const parts = JSON.parse(participantsRaw);
-    await Promise.all(
-      parts.map((p: any) => context.env.VACAY_KV!.delete(`event:${eventId}:response:${p.id}`))
-    );
-  }
+  // Purge all discrete participant and response keys
+  const [partKeys, respKeys] = await Promise.all([
+    context.env.VACAY_KV.list({ prefix: `event:${eventId}:participant:` }),
+    context.env.VACAY_KV.list({ prefix: `event:${eventId}:response:` }),
+  ]);
 
-  await Promise.all([
+  const delPromises: Promise<any>[] = [
     context.env.VACAY_KV.delete(`event:${eventId}:meta`),
     context.env.VACAY_KV.delete(`event:${eventId}:participants`),
     context.env.VACAY_KV.delete(`event_${eventId}`),
-  ]);
+  ];
+
+  for (const k of partKeys.keys) delPromises.push(context.env.VACAY_KV.delete(k.name));
+  for (const k of respKeys.keys) delPromises.push(context.env.VACAY_KV.delete(k.name));
+
+  await Promise.all(delPromises);
 
   return new Response(JSON.stringify({ success: true, deleted: eventId }), {
     headers: { 'Content-Type': 'application/json' },
