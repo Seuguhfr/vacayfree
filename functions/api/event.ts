@@ -222,7 +222,39 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       });
     }
 
-    // CASE C: Event Creation / Organizer Settings Update
+    // CASE C: Participant Deletion (Organizer only)
+    if (payload.action === 'delete_participant') {
+      const { eventId, participantId, adminKey } = payload;
+      if (!eventId || !participantId || !adminKey) {
+        return new Response(JSON.stringify({ error: 'Missing parameters' }), { status: 400 });
+      }
+
+      const metaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);
+      if (!metaRaw) {
+        return new Response(JSON.stringify({ notFound: true }), { status: 404 });
+      }
+
+      const meta = JSON.parse(metaRaw);
+      const computedAdminHash = await hashAdminKey(eventId, adminKey);
+      const legacyAdminHash = await hashString(adminKey);
+      if (meta.adminKeyHash !== computedAdminHash && meta.adminKeyHash !== legacyAdminHash) {
+        return new Response(JSON.stringify({ error: 'Unauthorized: Invalid admin key' }), { status: 401 });
+      }
+
+      // Remove from participants list and delete response
+      const participantsRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
+      if (participantsRaw) {
+        const parts = JSON.parse(participantsRaw).filter((p: any) => p.id !== participantId);
+        await context.env.VACAY_KV.put(`event:${eventId}:participants`, JSON.stringify(parts), { expirationTtl: ttl });
+      }
+      await context.env.VACAY_KV.delete(`event:${eventId}:response:${participantId}`);
+
+      return new Response(JSON.stringify({ success: true, removed: participantId }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // CASE D: Event Creation / Organizer Settings Update
     const eventId = payload?.event?.id;
     if (!eventId) {
       return new Response(JSON.stringify({ error: 'Invalid payload: missing event id' }), { status: 400 });
@@ -235,11 +267,28 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       { expirationTtl: ttl }
     );
 
-    // Save participant index
-    if (payload.participants) {
+    // Save participant index (smart merge to prevent clobbering concurrent registrations)
+    if (payload.participants && Array.isArray(payload.participants)) {
+      const existingRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
+      let merged = payload.participants;
+      if (existingRaw) {
+        try {
+          const existingList = JSON.parse(existingRaw);
+          if (Array.isArray(existingList)) {
+            const map = new Map<string, any>();
+            for (const p of existingList) {
+              map.set(p.id, p);
+            }
+            for (const p of payload.participants) {
+              map.set(p.id, { ...(map.get(p.id) || {}), ...p });
+            }
+            merged = Array.from(map.values());
+          }
+        } catch {}
+      }
       await context.env.VACAY_KV.put(
         `event:${eventId}:participants`,
-        JSON.stringify(payload.participants),
+        JSON.stringify(merged),
         { expirationTtl: ttl }
       );
     }

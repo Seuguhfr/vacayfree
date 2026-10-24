@@ -68,15 +68,20 @@ export default function App() {
   }, []);
 
   const loadEvent = useCallback(async (eventId: string, adminParam?: string | null) => {
-    let data = StorageService.getEvent(eventId);
-    if (!data && eventId === 'demo-summer-trip') {
-      data = await createDemoEvent();
-    }
-    if (!data) {
+    let data: EventDataPackage | null = null;
+    if (eventId === 'demo-summer-trip') {
+      data = StorageService.getEvent(eventId) || (await createDemoEvent());
+    } else {
+      // 1. Prioritize authoritative multi-user state from Cloudflare KV edge
       data = await StorageService.fetchCloudEvent(eventId);
-    } else if (!eventId.startsWith('demo-')) {
-      // Auto-sync locally cached event to Cloudflare KV for any polls created before edge sync was live
-      StorageService.pushEventToCloud(data);
+      // 2. Fall back to local storage if offline or not in cloud yet
+      if (!data) {
+        data = StorageService.getEvent(eventId);
+        if (data) {
+          // One-time backfill to Cloudflare KV
+          StorageService.pushEventToCloud(data);
+        }
+      }
     }
 
     if (data) {
@@ -138,6 +143,40 @@ export default function App() {
       window.removeEventListener('popstate', handleUrlChange);
     };
   }, [loadEvent, parseUrlParams]);
+
+  // Real-time background sync loop (every 4 seconds for instant multi-user collaboration)
+  useEffect(() => {
+    if (!eventData || eventData.event.id.startsWith('demo-')) return;
+    const currentId = eventData.event.id;
+
+    const interval = setInterval(async () => {
+      if (document.hidden) return;
+      try {
+        const fresh = await StorageService.fetchCloudEvent(currentId);
+        if (fresh && fresh.event && fresh.event.id === currentId) {
+          setEventData((prev) => {
+            if (!prev || prev.event.id !== currentId) return fresh;
+            const partsChanged =
+              JSON.stringify(prev.participants) !== JSON.stringify(fresh.participants);
+            const respsChanged =
+              JSON.stringify(prev.responses) !== JSON.stringify(fresh.responses);
+            const lockChanged = prev.event.isLocked !== fresh.event.isLocked;
+            const titleChanged = prev.event.title !== fresh.event.title;
+            const descChanged = prev.event.description !== fresh.event.description;
+
+            if (partsChanged || respsChanged || lockChanged || titleChanged || descChanged) {
+              return fresh;
+            }
+            return prev;
+          });
+        }
+      } catch {
+        // Silently continue polling
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [eventData?.event?.id]);
 
   // Derived calculations
   const dates = useMemo(() => {
@@ -202,7 +241,7 @@ export default function App() {
     setRecentTrips(StorageService.getRecentEventPackages());
   };
 
-  const handleSaveAvailability = (
+  const handleSaveAvailability = async (
     newAvail: Record<string, { date: string; status: AvailabilityStatus; note?: string }>
   ) => {
     if (!eventData || !currentParticipant) return;
@@ -225,19 +264,52 @@ export default function App() {
       updatedResponses.push(newRecord);
     }
 
+    const updatedParticipants = eventData.participants.some(p => p.id === currentParticipant.id)
+      ? eventData.participants
+      : [...eventData.participants, currentParticipant];
+
     const updatedPackage: EventDataPackage = {
       ...eventData,
+      participants: updatedParticipants,
       responses: updatedResponses,
     };
 
     setEventData(updatedPackage);
     const session = StorageService.getParticipantSession(eventData.event.id);
-    StorageService.saveParticipantResponseDelta(
+    await StorageService.saveParticipantResponseDelta(
       eventData.event.id,
       currentParticipant,
       newRecord,
       session?.pin || ''
     );
+  };
+
+  const handleParticipantJoinedOrLoggedIn = async (p: Participant) => {
+    setCurrentParticipant(p);
+    if (!eventData) return;
+
+    const isNew = !eventData.participants.some(part => part.id === p.id);
+    if (isNew) {
+      const updatedPackage: EventDataPackage = {
+        ...eventData,
+        participants: [...eventData.participants, p],
+      };
+      setEventData(updatedPackage);
+      StorageService.saveEvent(updatedPackage, false);
+
+      const session = StorageService.getParticipantSession(eventData.event.id);
+      await StorageService.saveParticipantResponseDelta(
+        eventData.event.id,
+        p,
+        {
+          participantId: p.id,
+          eventId: eventData.event.id,
+          availability: {},
+          updatedAt: new Date().toISOString(),
+        },
+        session?.pin || ''
+      );
+    }
   };
 
   const handleSelectParticipant = (p: Participant) => {
@@ -279,7 +351,7 @@ export default function App() {
     StorageService.saveEvent(updated);
   };
 
-  const handleDeleteParticipant = (participantId: string) => {
+  const handleDeleteParticipant = async (participantId: string) => {
     if (!eventData) return;
     const updated: EventDataPackage = {
       ...eventData,
@@ -290,7 +362,10 @@ export default function App() {
       setCurrentParticipant(null);
     }
     setEventData(updated);
-    StorageService.saveEvent(updated);
+    StorageService.saveEvent(updated, false);
+    if (adminKey) {
+      await StorageService.deleteParticipantFromCloud(eventData.event.id, participantId, adminKey);
+    }
   };
 
   const handleFinalizeWindow = (win: TripWindow) => {
@@ -587,7 +662,7 @@ export default function App() {
             eventId={eventData.event.id}
             participants={eventData.participants}
             targetParticipant={pinTarget}
-            onSelectParticipant={(p) => setCurrentParticipant(p)}
+            onSelectParticipant={handleParticipantJoinedOrLoggedIn}
           />
 
           <DayDetailsModal

@@ -112,7 +112,7 @@ export const StorageService = {
     participant: Participant,
     response: ParticipantResponse,
     pin: string
-  ): Promise<void> {
+  ): Promise<boolean> {
     try {
       // 1. Update locally immediately
       const data = this.getEvent(eventId);
@@ -130,19 +130,47 @@ export const StorageService = {
       }
 
       // 2. Send delta write to edge API
-      fetch('/api/event', {
+      if (!eventId.startsWith('demo-')) {
+        const res = await fetch('/api/event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'save_response',
+            eventId,
+            participant,
+            response,
+            pin,
+          }),
+        });
+        return res.ok;
+      }
+      return true;
+    } catch (e) {
+      console.error('Failed to save participant response delta', e);
+      return false;
+    }
+  },
+
+  async deleteParticipantFromCloud(
+    eventId: string,
+    participantId: string,
+    adminKey: string
+  ): Promise<boolean> {
+    if (eventId.startsWith('demo-')) return true;
+    try {
+      const res = await fetch('/api/event', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'save_response',
+          action: 'delete_participant',
           eventId,
-          participant,
-          response,
-          pin,
+          participantId,
+          adminKey,
         }),
-      }).catch(() => {});
-    } catch (e) {
-      console.error('Failed to save participant response delta', e);
+      });
+      return res.ok;
+    } catch {
+      return false;
     }
   },
 

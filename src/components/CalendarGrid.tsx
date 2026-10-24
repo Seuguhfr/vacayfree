@@ -24,6 +24,7 @@ import {
   XCircle,
   RotateCcw,
   Info,
+  Users,
 } from 'lucide-react';
 import { DayNoteModal } from './DayNoteModal';
 
@@ -51,8 +52,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   onSaveAvailability,
   onSelectDayDetails,
 }) => {
-  // Paint mode state
-  const isPaintMode = !!currentParticipant;
+  // View mode tab: 'paint' (personal painter) vs 'heatmap' (overall group calendar)
+  const [viewTab, setViewTab] = useState<'paint' | 'heatmap'>(currentParticipant ? 'paint' : 'heatmap');
+  const isPaintMode = !!currentParticipant && viewTab === 'paint';
   const [brushStatus, setBrushStatus] = useState<AvailabilityStatus>('available');
   const [localAvail, setLocalAvail] = useState<Record<string, { date: string; status: AvailabilityStatus; note?: string }>>(
     myResponse?.availability || {}
@@ -74,11 +76,21 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     note: '',
   });
 
-  // Sync when participant or response changes
+  // Sync when participant or response changes, preserving uncommitted brushstrokes
   React.useEffect(() => {
-    setLocalAvail(myResponse?.availability || {});
-    setIsDirty(false);
-  }, [myResponse, currentParticipant]);
+    if (!isDirty) {
+      setLocalAvail(myResponse?.availability || {});
+    }
+  }, [myResponse, currentParticipant, isDirty]);
+
+  // When a user selects a participant, switch to paint mode
+  React.useEffect(() => {
+    if (currentParticipant) {
+      setViewTab('paint');
+    } else {
+      setViewTab('heatmap');
+    }
+  }, [currentParticipant?.id]);
 
   // Compute unique months in range
   const start = parseISO(startDateStr);
@@ -172,55 +184,108 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
     >
-      {/* Paint Mode Controls Toolbar */}
-      {isPaintMode && (
-        <div className="sticky top-16 z-20 space-y-2">
-          <div className="bg-white/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
-            {/* Brush selection with FL Studio toggle indicator */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mr-1">
-                Brush:
-              </span>
-              <button
-                type="button"
-                onClick={() => setBrushStatus('available')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                  brushStatus === 'available'
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/20'
-                    : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-                }`}
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Available</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setBrushStatus('maybe')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                  brushStatus === 'maybe'
-                    ? 'bg-amber-500 text-white border-amber-500 shadow-xs ring-2 ring-amber-500/20'
-                    : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
-                }`}
-              >
-                <HelpCircle className="w-3.5 h-3.5" />
-                <span>Maybe</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setBrushStatus('busy')}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                  brushStatus === 'busy'
-                    ? 'bg-zinc-800 text-white border-zinc-800 shadow-xs'
-                    : 'bg-zinc-100 text-zinc-700 border-zinc-200 hover:bg-zinc-200'
-                }`}
-                title="Clear dates back to busy"
-              >
-                <XCircle className="w-3.5 h-3.5" />
-                <span>Clear</span>
-              </button>
-            </div>
+      {/* Calendar Controls & Mode Switcher Toolbar */}
+      <div className="sticky top-16 z-20 space-y-2">
+        <div className="bg-white/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+          {currentParticipant ? (
+            /* Mode Switcher for logged in participants */
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex p-1 bg-zinc-100 rounded-xl border border-zinc-200/80 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setViewTab('paint')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    viewTab === 'paint'
+                      ? 'bg-white text-emerald-900 shadow-xs'
+                      : 'text-zinc-600 hover:text-zinc-950'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>My Dates (Painter)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isDirty) {
+                      handleSave();
+                    }
+                    setViewTab('heatmap');
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    viewTab === 'heatmap'
+                      ? 'bg-white text-indigo-950 shadow-xs'
+                      : 'text-zinc-600 hover:text-zinc-950'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Group Heatmap</span>
+                </button>
+              </div>
 
-            {/* Quick presets & Clean Save (no distracting pulse) */}
+              {/* Brush selection (visible when in painter tab) */}
+              {viewTab === 'paint' && (
+                <div className="flex items-center gap-1.5 pl-1 sm:pl-2 sm:border-l sm:border-zinc-200">
+                  <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider hidden sm:inline">
+                    Brush:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setBrushStatus('available')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                      brushStatus === 'available'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/20'
+                        : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Free</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBrushStatus('maybe')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                      brushStatus === 'maybe'
+                        ? 'bg-amber-500 text-white border-amber-500 shadow-xs ring-2 ring-amber-500/20'
+                        : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                    }`}
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" />
+                    <span>Maybe</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBrushStatus('busy')}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                      brushStatus === 'busy'
+                        ? 'bg-zinc-800 text-white border-zinc-800 shadow-xs'
+                        : 'bg-zinc-100 text-zinc-700 border-zinc-200 hover:bg-zinc-200'
+                    }`}
+                    title="Clear dates back to busy"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    <span>Clear</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Viewer mode Heatmap legend */
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-zinc-800 text-xs">Heatmap:</span>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-sm bg-zinc-100 border border-zinc-200" title="0 friends free" />
+                <span className="text-[11px] text-zinc-500">None</span>
+                <span className="w-3 h-3 rounded-sm bg-emerald-100 border border-emerald-200" title="Few free" />
+                <span className="w-3 h-3 rounded-sm bg-emerald-300 border border-emerald-400" title="Most free" />
+                <span className="w-3 h-3 rounded-sm bg-emerald-500" title="Nearly all free" />
+                <span className="w-3 h-3 rounded-sm bg-emerald-600 ring-1 ring-emerald-400" title="100% all friends free!" />
+                <span className="text-[11px] font-bold text-emerald-800">All</span>
+              </div>
+            </div>
+          )}
+
+          {/* Right side controls */}
+          {currentParticipant && viewTab === 'paint' ? (
             <div className="flex items-center gap-2 self-end md:self-auto">
               <button
                 type="button"
@@ -259,39 +324,54 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                 <span>{isDirty ? 'Save Changes' : 'Saved'}</span>
               </button>
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center gap-3 text-xs text-zinc-600">
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-sm bg-zinc-100 border border-zinc-200" />
+                <span className="text-[11px] text-zinc-500">0</span>
+                <span className="w-3 h-3 rounded-sm bg-emerald-100 border border-emerald-200" />
+                <span className="w-3 h-3 rounded-sm bg-emerald-300 border border-emerald-400" />
+                <span className="w-3 h-3 rounded-sm bg-emerald-600" />
+                <span className="text-[11px] font-bold text-emerald-800">All free</span>
+              </div>
+              <span className="text-zinc-300">|</span>
+              <p className="text-[11px] font-medium text-zinc-500 flex items-center gap-1">
+                <Info className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                <span>Click any day to see friend availability</span>
+              </p>
+            </div>
+          )}
+        </div>
 
-          {/* Dynamic Painter Instruction & FL Studio Rack Toggle Hint */}
+        {/* Dynamic Context Banners */}
+        {currentParticipant && viewTab === 'paint' && (
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-50/90 border border-zinc-200/80 text-xs text-zinc-600 shadow-2xs">
             <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>
               <strong>Painter:</strong> Click or drag across days to mark free. Click any active day again to toggle it off. Click the 💬 icon on any day to attach a note.
             </span>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Heatmap Legend (view mode) with high-contrast text */}
-      {!isPaintMode && (
-        <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-zinc-600">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-zinc-800 text-xs">Heatmap:</span>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-sm bg-zinc-100 border border-zinc-200" title="0 friends free" />
-              <span className="text-[11px] text-zinc-500">None</span>
-              <span className="w-3 h-3 rounded-sm bg-emerald-100 border border-emerald-200" title="Few free" />
-              <span className="w-3 h-3 rounded-sm bg-emerald-300 border border-emerald-400" title="Most free" />
-              <span className="w-3 h-3 rounded-sm bg-emerald-500" title="Nearly all free" />
-              <span className="w-3 h-3 rounded-sm bg-emerald-600 ring-1 ring-emerald-400" title="100% all friends free!" />
-              <span className="text-[11px] font-bold text-emerald-800">All</span>
+        {currentParticipant && viewTab === 'heatmap' && (
+          <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-indigo-50/80 border border-indigo-200/90 text-xs text-indigo-950 shadow-2xs">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-indigo-600 shrink-0" />
+              <span>
+                <strong>Group Heatmap:</strong> Viewing combined availability of all friends. Click any day for details.
+              </span>
             </div>
+            <button
+              type="button"
+              onClick={() => setViewTab('paint')}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-indigo-700 hover:bg-indigo-100 border border-indigo-200 shadow-2xs cursor-pointer transition-colors shrink-0"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Edit My Dates</span>
+            </button>
           </div>
-          <p className="text-xs font-medium text-zinc-600 flex items-center gap-1">
-            <Info className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-            <span>Click any day to see detailed friend availability and notes</span>
-          </p>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Calendar Months Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
