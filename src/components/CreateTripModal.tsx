@@ -210,8 +210,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-1">
-            <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div className="w-full min-w-0 max-w-full box-border">
               <span className="text-[10px] text-zinc-500 mb-0.5 block">{t.earliestStartLabel}</span>
               <input
                 type="date"
@@ -221,10 +221,10 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   setStartDate(e.target.value);
                   setActivePreset(null);
                 }}
-                className="w-full px-2.5 py-1.5 rounded-xl border border-zinc-200 bg-white text-zinc-900 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                className="w-full min-w-0 max-w-full box-border px-2.5 py-1.5 rounded-xl border border-zinc-200 bg-white text-zinc-900 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
               />
             </div>
-            <div>
+            <div className="w-full min-w-0 max-w-full box-border">
               <span className="text-[10px] text-zinc-500 mb-0.5 block">{t.latestReturnLabel}</span>
               <input
                 type="date"
@@ -234,7 +234,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   setEndDate(e.target.value);
                   setActivePreset(null);
                 }}
-                className="w-full px-2.5 py-1.5 rounded-xl border border-zinc-200 bg-white text-zinc-900 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                className="w-full min-w-0 max-w-full box-border px-2.5 py-1.5 rounded-xl border border-zinc-200 bg-white text-zinc-900 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
               />
             </div>
           </div>

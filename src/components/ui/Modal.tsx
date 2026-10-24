@@ -78,13 +78,13 @@ export const Modal: React.FC<ModalProps> = ({
       onClick={handleBackdropClick}
       {...({ closedby: 'any' } as Record<string, string>)}
       aria-labelledby={titleId}
-      className="fixed inset-0 m-auto w-[92vw] sm:w-full p-0 rounded-2xl bg-white text-zinc-900 shadow-2xl border border-zinc-200/90 outline-none overflow-hidden"
+      className="fixed inset-0 m-auto w-[92vw] sm:w-full p-0 rounded-2xl bg-white text-zinc-900 shadow-2xl border border-zinc-200/90 outline-none max-h-[90dvh] flex flex-col overflow-x-hidden"
       style={{
         maxWidth: maxW,
         backgroundColor: '#ffffff',
       }}
     >
-      <div className="flex items-center justify-between border-b border-zinc-100 px-5 sm:px-6 py-4 bg-white">
+      <div className="flex items-center justify-between border-b border-zinc-100 px-5 sm:px-6 py-4 bg-white shrink-0">
         <h2 id={titleId} className="text-base sm:text-lg font-bold tracking-tight text-zinc-900">
           {title}
         </h2>
@@ -99,7 +99,7 @@ export const Modal: React.FC<ModalProps> = ({
           </button>
         )}
       </div>
-      <div className="p-5 sm:p-6 max-h-[78vh] overflow-y-auto bg-white">{children}</div>
+      <div className="p-5 sm:p-6 pb-8 sm:pb-8 flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-white">{children}</div>
     </dialog>
   );
 };

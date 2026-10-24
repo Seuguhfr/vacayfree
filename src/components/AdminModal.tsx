@@ -126,12 +126,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 value={inputKey}
                 onChange={(e) => setInputKey(e.target.value)}
                 placeholder={t.adminKeyPlaceholder}
-                className="flex-1 px-3 py-2 rounded-xl border border-zinc-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-zinc-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
               />
               <button
                 type="submit"
                 disabled={isVerifying}
-                className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 cursor-pointer shrink-0"
               >
                 {isVerifying ? t.verifyingBtn : t.verifyAndUnlockBtn}
               </button>
@@ -158,7 +158,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   type="text"
                   readOnly
                   value={adminUrl}
-                  className="flex-1 px-2.5 py-1.5 rounded-lg border border-amber-300/80 bg-white text-xs font-mono select-all focus:outline-none text-zinc-800"
+                  className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg border border-amber-300/80 bg-white text-xs font-mono select-all focus:outline-none text-zinc-800"
                 />
                 <button
                   type="button"
@@ -167,7 +167,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     setCopiedAdminUrl(true);
                     setTimeout(() => setCopiedAdminUrl(false), 2000);
                   }}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-700 text-white hover:bg-amber-800 cursor-pointer"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-700 text-white hover:bg-amber-800 cursor-pointer shrink-0"
                 >
                   {copiedAdminUrl ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copiedAdminUrl ? t.copiedBtn : t.copyBtn}</span>
@@ -224,8 +224,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="w-full min-w-0 max-w-full box-border">
                 <label className="block text-[11px] font-medium text-zinc-500 mb-0.5">
                   {t.earliestStartLabel}
                 </label>
@@ -233,10 +233,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs"
+                  className="w-full min-w-0 max-w-full box-border px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs"
                 />
               </div>
-              <div>
+              <div className="w-full min-w-0 max-w-full box-border">
                 <label className="block text-[11px] font-medium text-zinc-500 mb-0.5">
                   {t.latestReturnLabel}
                 </label>
@@ -244,7 +244,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs"
+                  className="w-full min-w-0 max-w-full box-border px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs"
                 />
               </div>
             </div>
