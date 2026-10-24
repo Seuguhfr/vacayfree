@@ -22,7 +22,6 @@ import {
   Check,
   CheckCircle2,
   HelpCircle,
-  XCircle,
   RotateCcw,
   Info,
   Users,
@@ -60,7 +59,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   // View mode tab: 'paint' (personal painter) vs 'heatmap' (overall group calendar)
   const [viewTab, setViewTab] = useState<'paint' | 'heatmap'>(currentParticipant ? 'paint' : 'heatmap');
   const isPaintMode = !!currentParticipant && viewTab === 'paint';
-  const [brushStatus, setBrushStatus] = useState<AvailabilityStatus>('available');
+  const [brushStatus, setBrushStatus] = useState<'available' | 'maybe'>('available');
   const [localAvail, setLocalAvail] = useState<Record<string, { date: string; status: AvailabilityStatus; note?: string }>>(
     myResponse?.availability || {}
   );
@@ -264,19 +263,6 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                   >
                     <HelpCircle className="w-3.5 h-3.5" />
                     <span>{t.brushMaybe}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setBrushStatus('busy')}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                      brushStatus === 'busy'
-                        ? 'bg-rose-600 text-white border-rose-600 shadow-xs ring-2 ring-rose-500/20'
-                        : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
-                    }`}
-                    title={t.brushBusy}
-                  >
-                    <XCircle className="w-3.5 h-3.5" />
-                    <span>{t.brushBusy}</span>
                   </button>
                 </div>
               )}
