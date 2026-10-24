@@ -447,29 +447,29 @@ export default function App() {
         </div>
       )}
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-5 sm:pt-6">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-3 sm:pt-6">
         {!eventData ? (
           /* Landing Hero View */
-          <div className="max-w-2xl mx-auto text-center py-12 sm:py-20 space-y-8 animate-in fade-in duration-300">
-            <div className="inline-flex p-4 rounded-3xl bg-emerald-600 text-white shadow-lg shadow-emerald-600/20">
-              <Palmtree className="w-12 h-12 stroke-[2]" />
+          <div className="max-w-2xl mx-auto text-center py-4 sm:py-16 my-2 sm:my-8 space-y-4 sm:space-y-8 animate-in fade-in duration-300">
+            <div className="inline-flex p-3 sm:p-4 rounded-2xl sm:rounded-3xl bg-emerald-600 text-white shadow-lg shadow-emerald-600/20">
+              <Palmtree className="w-8 h-8 sm:w-12 sm:h-12 stroke-[2]" />
             </div>
 
-            <div className="space-y-3">
-              <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-zinc-950">
+            <div className="space-y-2 sm:space-y-3">
+              <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-zinc-950">
                 {t.heroTitle}
               </h1>
-              <p className="text-base sm:text-lg text-zinc-600 max-w-lg mx-auto leading-relaxed">
+              <p className="text-sm sm:text-lg text-zinc-600 max-w-lg mx-auto leading-relaxed">
                 {t.heroSubtitle}
               </p>
             </div>
 
             {/* Clear Primary & Secondary Actions */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-3 pt-1 sm:pt-2">
               <button
                 type="button"
                 onClick={() => setIsCreateOpen(true)}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] transition-all cursor-pointer shadow-md shadow-emerald-600/20"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 sm:py-3.5 rounded-2xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] transition-all cursor-pointer shadow-md shadow-emerald-600/20"
               >
                 <Plus className="w-4 h-4 stroke-[2.5]" />
                 <span>{t.createPollBtn}</span>
@@ -478,7 +478,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleLoadDemo}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl text-sm font-semibold bg-white text-zinc-800 border border-zinc-200/90 hover:bg-zinc-100/80 active:scale-[0.98] transition-all cursor-pointer shadow-xs"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 sm:py-3.5 rounded-2xl text-sm font-semibold bg-white text-zinc-800 border border-zinc-200/90 hover:bg-zinc-100/80 active:scale-[0.98] transition-all cursor-pointer shadow-xs"
               >
                 <Sparkles className="w-4 h-4 text-emerald-600" />
                 <span>{t.tryDemoBtn}</span>

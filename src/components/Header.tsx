@@ -27,8 +27,9 @@ export const Header: React.FC<HeaderProps> = ({
   const isDemo = event?.id === 'demo-summer-trip';
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-zinc-200/80 transition-all">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+    <>
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-zinc-200/80 transition-all">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         {/* Brand / Home link */}
         <div className="flex items-center gap-3">
           <button
@@ -132,28 +133,21 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
       </div>
+    </header>
 
-      {/* Demo notification banner if in demo */}
+      {/* Non-sticky Demo notification banner (scrolls naturally out of the way) */}
       {isDemo && (
-        <div className="bg-amber-50/90 border-t border-amber-200/70 px-4 py-1.5 text-center text-xs text-amber-900 flex items-center justify-center gap-2">
+        <div className="bg-amber-50/95 border-b border-amber-200/70 px-4 py-1.5 text-center text-xs text-amber-900 flex flex-wrap items-center justify-center gap-1.5">
           <span>{t.demoBannerText}</span>
           <button
             type="button"
             onClick={onOpenNewTrip}
-            className="underline font-semibold hover:text-amber-950 ml-1 cursor-pointer"
+            className="underline font-semibold hover:text-amber-950 ml-1 cursor-pointer whitespace-nowrap"
           >
             {t.demoBannerCreate}
           </button>
-          <span className="text-amber-300">•</span>
-          <button
-            type="button"
-            onClick={onGoHome}
-            className="underline hover:text-amber-950 cursor-pointer"
-          >
-            {t.demoBannerHome}
-          </button>
         </div>
       )}
-    </header>
+    </>
   );
 };
