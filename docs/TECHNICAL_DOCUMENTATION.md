@@ -12,7 +12,7 @@ The application follows a **Local-First, Edge-Enhanced Serverless Architecture**
 flowchart TD
     subgraph Client["Client Browser (Mobile & Desktop)"]
         UI["React 19 UI / Tailwind v4"]
-        State["Application State & URL Hash Router"]
+        State["Application State & URL Search/Hash Router"]
         Algo["Sliding Window Calculation Engine"]
         LStorage[("localStorage Cache")]
         UI --> State
@@ -23,17 +23,19 @@ flowchart TD
     subgraph Edge["Cloudflare Edge Network (.pages.dev)"]
         StaticAssets["Static Asset CDN (dist/)"]
         Functions["Pages Functions (/api/event)"]
+        Middleware["OG Middleware (_middleware.ts)"]
         KV[("Cloudflare KV (VACAY_KV)")]
+        Middleware --> StaticAssets
         Functions <--> KV
     end
 
-    Client -- "HTTP/2 Fetch Assets" --> StaticAssets
-    State -. "Async Edge Sync (POST/GET)" .-> Functions
+    Client -- "HTTP/2 Fetch Assets" --> Middleware
+    State -. "Delta Sync (POST/GET)" .-> Functions
 ```
 
-- **Static Delivery**: Hosted on Cloudflare Pages global edge network.
+- **Static Delivery**: Hosted on Cloudflare Pages global edge network with dynamic OpenGraph meta injection.
 - **Client Runtime**: Zero backend requirement for core features. All computations (date math, heatmaps, sliding window rankings, PIN verification) run client-side in sub-millisecond execution.
-- **Edge Persistence**: Cloudflare Pages Functions (`/api/event.ts`) backed by Cloudflare KV provide optional cross-device synchronization without hosting dedicated database servers.
+- **Edge Persistence**: Cloudflare Pages Functions (`/api/event.ts`) backed by Cloudflare KV provide cross-device synchronization with discrete per-participant keys to eliminate concurrent write collisions.
 
 ---
 
@@ -69,7 +71,7 @@ export interface Participant {
   id: string; // e.g. "p-x8k2lm"
   eventId: string;
   name: string;
-  pinHash: string; // SHA-256 hash of participant's 4-digit PIN
+  pinHash: string; // Salted SHA-256 hash of participant's 4-digit PIN
   color: string;   // Tailwind color class for avatar badge
   createdAt: string; // ISO 8601
 }
@@ -89,7 +91,7 @@ export interface TripEvent {
   startDate: string; // "YYYY-MM-DD"
   endDate: string;   // "YYYY-MM-DD"
   defaultDurationDays: number; // e.g. 7
-  adminKeyHash: string; // SHA-256 hash of organizer secret key
+  adminKeyHash: string; // Salted SHA-256 hash of organizer secret key
   isLocked: boolean; // When true, prevents edits to availability
   createdAt: string;
   updatedAt: string;
@@ -127,10 +129,15 @@ export interface TripWindow {
   fullAttendance: boolean; // True only if 100% of participants are 'available' every day
   attendancePercentage: number;
   daySummaries: DaySummary[];
-  unvailableParticipants: Array<{
+  unavailableParticipants: Array<{
     id: string;
     name: string;
     daysUnavailable: number;
+  }>;
+  maybeParticipants?: Array<{
+    id: string;
+    name: string;
+    daysMaybe: number;
   }>;
 }
 ```
@@ -167,7 +174,9 @@ Given an event date interval of length $T$ days and a target vacation duration $
    - **Full Attendance Check**: A participant $p$ is strictly available for window $W_i$ iff:
      $$\forall k \in [0, D-1], \quad \text{status}(p, d_{i+k}) = \text{'available'}$$
      If and only if all $N$ participants satisfy this condition, `fullAttendance = true`.
-   - **Unavailable Breakdown**: For participants who have busy or maybe days in window $W_i$, count the exact number of compromised days.
+   - **Distinct Unavailable vs. Maybe Breakdown**:
+     - `unavailableParticipants`: Friends with busy days in $W_i$.
+     - `maybeParticipants`: Friends with maybe days in $W_i$.
 3. **Multi-Factor Lexicographical Sorting**:
    Windows are prioritized using the following ordering rules:
    1. `fullAttendance` descending (`true` before `false`).
@@ -177,121 +186,66 @@ Given an event date interval of length $T$ days and a target vacation duration $
 
 ---
 
-## 5. UI Architecture & Component Hierarchy
+## 5. UI Architecture & 2-Column Desktop Layout
 
 ```mermaid
 graph TD
-    App["App.tsx (State Orchestrator & Hash Routing)"]
-    App --> Header["Header.tsx (Navigation & Brand Bar)"]
-    App --> ParticipantBar["ParticipantBar.tsx (Participant List & Active Session)"]
-    App --> TripWindowFinder["TripWindowFinder.tsx (Duration Pills & Ranked Windows)"]
-    App --> CalendarGrid["CalendarGrid.tsx (Multi-Month Grid & Paint Tool)"]
+    App["App.tsx (State Orchestrator & Search/Hash Router)"]
+    App --> Header["Header.tsx (Unified Nav, Clean Brand Bar)"]
+    App --> ParticipantBar["ParticipantBar.tsx (Unified Header & Participant Pills)"]
+    
+    subgraph DesktopLayout["2-Column Split Layout"]
+        CalendarGrid["CalendarGrid.tsx (Left / Main: Heatmap & Paint Tool)"]
+        TripWindowFinder["TripWindowFinder.tsx (Right / Sticky: Ranked Windows & Duration Selector)"]
+    end
+    App --> DesktopLayout
     
     App --> Modal["Modal.tsx (&lt;dialog&gt; Core Wrapper)"]
     Modal -.-> CreateTripModal["CreateTripModal.tsx"]
-    Modal -.-> ShareModal["ShareModal.tsx"]
-    Modal -.-> AdminModal["AdminModal.tsx"]
-    Modal -.-> PinModal["PinModal.tsx"]
-    Modal -.-> DayDetailsModal["DayDetailsModal.tsx"]
+    Modal -.-> ShareModal["ShareModal.tsx (Safe Group Chat Links)"]
+    Modal -.-> AdminModal["AdminModal.tsx (Organizer Secret Key & PIN Reset)"]
+    Modal -.-> PinModal["PinModal.tsx (Smart Name Collision & PIN Auth)"]
+    Modal -.-> DayDetailsModal["DayDetailsModal.tsx (Colored Avatars & Notes)"]
     Modal -.-> DayNoteModal["DayNoteModal.tsx"]
 ```
 
-### 5.1 Component Breakdown
-
-1. **[`App.tsx`](file:///Users/hugues/Code/free-time-finder/src/App.tsx)**:
-   - Manages global state (`eventData`, `currentParticipant`, `isAdmin`, `targetDuration`, `selectedWindow`).
-   - Implements URL hash synchronization (`#event=<id>&admin=<key>`).
-   - Provides clean transitions between Landing Hero and Active Poll view.
-2. **[`CalendarGrid.tsx`](file:///Users/hugues/Code/free-time-finder/src/components/CalendarGrid.tsx)**:
-   - **Heatmap View**: Renders date cells colored by attendance percentage with available badges.
-   - **Paint Mode**: Activated when a user is selected. Enables mouse pointer / touch drag painting across date cells with brush modes (`Available`, `Maybe`, `Busy`).
-   - Supports day notes and window highlight frames.
-3. **[`TripWindowFinder.tsx`](file:///Users/hugues/Code/free-time-finder/src/components/TripWindowFinder.tsx)**:
-   - Duration selector pills (`Weekend (3d)`, `1 Week (7d)`, `2 Weeks (14d)`, `Custom` with stepper).
-   - Displays ranked cards with medals (🥇, 🥈, 🥉), attendance match percentage, missing participant badges, and "Highlight on Calendar" trigger.
-4. **[`Modal.tsx`](file:///Users/hugues/Code/free-time-finder/src/components/ui/Modal.tsx)**:
-   - Implements the HTML5 `<dialog>` specification with `closedby="any"` and `showModal()`.
-   - Incorporates bounding-box backdrop click detection as a fallback for Safari.
-   - Constrained to explicit widths (`max-w-sm: 384px`, `max-w-md: 480px`, `max-w-lg: 560px`) with solid white backgrounds to eliminate viewport overflow.
-
 ---
 
-## 6. Security & Access Model
+## 6. Security & Concurrency Architecture
 
-The security model is engineered around **maximum social convenience with collision prevention**:
+### 6.1 Salted Cryptographic Hashing (Anti-Rainbow Table)
+To prevent 4-digit PIN brute-force attacks across the 10,000-value space (`0000`–`9999`):
+```typescript
+const SALT_PEPPER = 'vacay_salt_sec_2026';
 
-```mermaid
-sequenceDiagram
-    participant User as Participant / Friend
-    participant Client as Web App (Client)
-    participant Crypto as Web Crypto API (SHA-256)
-    participant Storage as LocalStorage / KV
+export async function hashParticipantPin(eventId: string, participantId: string, pin: string): Promise<string> {
+  return hashString(`${eventId}:${participantId}:${pin.trim()}:${SALT_PEPPER}`);
+}
 
-    User->>Client: Enters Name + 4-digit PIN (e.g. "1234")
-    Client->>Crypto: hashString("1234")
-    Crypto-->>Client: Returns SHA-256 Digest
-    Client->>Storage: Stores participant record { name, pinHash, color }
-    Note over Client: User edits availability freely during session
-    User->>Client: Closes browser and returns later
-    User->>Client: Clicks their name
-    Client->>User: Prompts for 4-digit PIN
-    User->>Client: Submits PIN
-    Client->>Crypto: hashString(enteredPin)
-    alt Hash Matches
-        Client->>Client: Unlocks Editing Mode
-    else Hash Mismatch
-        Client->>User: Displays "Incorrect PIN"
-    end
+export async function hashAdminKey(eventId: string, adminKey: string): Promise<string> {
+  return hashString(`${eventId}:${adminKey.trim()}:${SALT_PEPPER}`);
+}
 ```
+Every PIN hash is cryptographically bound to its unique `eventId`, `participantId`, and internal pepper, completely defeating generic precomputed hash tables.
 
-### 6.1 Cryptographic Hash Verification
-- Standard SHA-256 hashing is implemented via native `window.crypto.subtle.digest`:
-  ```typescript
-  export async function hashString(input: string): Promise<string> {
-    const msgUint8 = new TextEncoder().encode(input.trim());
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  }
-  ```
-- **Organizer Admin Key**: A 16-character pseudo-random token (`generateAdminKey()`) is generated on creation. The hash is saved with the event; the raw key is stored in the creator's local storage or provided in the secret link (`#event=...&admin=...`).
-- **Participant PIN**: A 4-digit numeric string chosen by the participant. Only the hash is stored, preventing casual snooping or accidental overwrite while avoiding email verification loops.
+### 6.2 Public API Hash Sanitization
+When clients or crawlers request `GET /api/event?id=...`, the Cloudflare Pages Function automatically strips all internal hashes before serving the response:
+- `event.adminKeyHash` $\rightarrow$ `""`
+- `participant.pinHash` $\rightarrow$ `""`
 
----
+Network tab inspection reveals **zero password or PIN hashes**.
 
-## 7. Storage & Cloud Synchronization
-
-VacayFree employs a **dual-layer storage adapter** in [`src/services/storage.ts`](file:///Users/hugues/Code/free-time-finder/src/services/storage.ts):
-
-1. **Synchronous Local Persistence (`localStorage`)**:
-   - Keys: `vacayfree_event_<id>`, `vacayfree_admin_<id>`, `vacayfree_session_<id>`, `vacayfree_recent_events`.
-   - Guarantees immediate zero-latency UI updates and offline resilience.
-2. **Asynchronous Edge Sync (`/api/event`)**:
-   - Cloudflare Pages Functions (`functions/api/event.ts`) intercept `GET /api/event?id=...` and `POST /api/event`.
-   - When a Cloudflare KV namespace binding (`VACAY_KV`) is attached, mutations are stored globally across Cloudflare's edge data centers with a 90-day retention TTL (`expirationTtl: 7776000`).
+### 6.3 Concurrency & Race-Condition Prevention (Discrete KV Deltas)
+To solve "last-write-wins" collisions when multiple friends save availability concurrently from a group chat:
+- Client availability updates are submitted as discrete deltas via `POST /api/event` with `action: 'save_response'`.
+- Storage is partitioned into independent Cloudflare KV keys:
+  - `event:${eventId}:meta` (Event bounds & lock status)
+  - `event:${eventId}:participants` (Participant metadata index)
+  - `event:${eventId}:response:${participantId}` (Discrete response per participant)
+- When Friend #5 and Friend #1 hit save at the exact same second, their writes target separate KV keys (`response:p1` vs `response:p5`). Neither can overwrite the other.
 
 ---
 
-## 8. Deployment & Build Specifications
+## 7. Timezone Safety
 
-### 8.1 Production Build Pipeline
-- Bundle command: `npm run build` (`tsc -b && vite build`)
-- Target: `ES2022`
-- Output Directory: `dist/`
-- Production Artifacts:
-  - `dist/index.html` (~1.04 kB)
-  - `dist/assets/index-*.css` (~39.7 kB)
-  - `dist/assets/index-*.js` (~351 kB)
-
-### 8.2 Cloudflare Pages Configuration
-- **Platform**: Cloudflare Pages (`.pages.dev`)
-- **Framework Preset**: `Vite`
-- **Build Command**: `npm run build`
-- **Output Directory**: `dist`
-- **Functions Routing**: Native support via `/functions` directory.
-- **Wrangler Configuration** ([`wrangler.toml`](file:///Users/hugues/Code/free-time-finder/wrangler.toml)):
-  ```toml
-  name = "vacayfree"
-  compatibility_date = "2026-01-01"
-  pages_build_output_dir = "./dist"
-  ```
+All calendar operations strictly use `date-fns` `parseISO` and `eachDayOfInterval` instead of native `new Date("YYYY-MM-DD")`, preventing UTC midnight timezone rollback bugs in western hemispheres.

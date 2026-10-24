@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal } from './ui/Modal';
 import { TripEvent, Participant } from '../types';
-import { generateAdminKey, hashString, generateRandomId } from '../utils/security';
+import { generateAdminKey, hashAdminKey, hashParticipantPin, generateRandomId } from '../utils/security';
 import { getParticipantColor } from '../utils/colors';
 import { StorageService } from '../services/storage';
 import { Calendar, Users, Clock, Sparkles } from 'lucide-react';
@@ -73,7 +73,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     try {
       const eventId = `trip-${generateRandomId(8)}`;
       const adminKey = generateAdminKey();
-      const adminKeyHash = await hashString(adminKey);
+      const adminKeyHash = await hashAdminKey(eventId, adminKey);
 
       const event: TripEvent = {
         id: eventId,
@@ -91,8 +91,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       const participants: Participant[] = [];
       if (creatorName.trim()) {
         const pin = creatorPin.trim() || '1234';
-        const pinHash = await hashString(pin);
         const participantId = `p-${generateRandomId(6)}`;
+        const pinHash = await hashParticipantPin(eventId, participantId, pin);
         const color = getParticipantColor(creatorName.trim(), 0).bg;
         const creatorParticipant: Participant = {
           id: participantId,

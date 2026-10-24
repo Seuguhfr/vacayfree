@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal } from './ui/Modal';
 import { TripEvent, Participant } from '../types';
-import { hashString } from '../utils/security';
+import { hashParticipantPin } from '../utils/security';
 import { StorageService } from '../services/storage';
 import { ShieldCheck, Lock, Unlock, Trash2, KeyRound, Copy, Check } from 'lucide-react';
 
@@ -77,9 +77,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   };
 
   const handleResetPin = async (p: Participant) => {
-    // Generate a fresh clean 4-digit PIN
+    // Generate a fresh clean 4-digit PIN with salted hash
     const tempPin = Math.floor(1000 + Math.random() * 9000).toString();
-    const pinHash = await hashString(tempPin);
+    const pinHash = await hashParticipantPin(event.id, p.id, tempPin);
 
     const data = StorageService.getEvent(event.id);
     if (data) {

@@ -68,7 +68,7 @@ export interface TripWindow {
   fullAttendance: boolean; // all participants available every single day
   attendancePercentage: number;
   daySummaries: DaySummary[];
-  unvailableParticipants: Array<{
+  unavailableParticipants: Array<{
     id: string;
     name: string;
     daysUnavailable: number;

@@ -1,5 +1,7 @@
 import { TripEvent, Participant, ParticipantResponse } from '../types';
-import { hashString } from '../utils/security';
+import { hashAdminKey, hashParticipantPin } from '../utils/security';
+import { getDatesInRange } from '../utils/dateCalc';
+import { format } from 'date-fns';
 
 const STORAGE_PREFIX = 'vacayfree_';
 
@@ -27,12 +29,13 @@ export const StorageService = {
       if (res.ok) {
         const data = await res.json() as EventDataPackage;
         if (data && data.event && data.event.id) {
-          this.saveEvent(data, false); // save locally without re-pushing
+          // Merge with any local participant sessions
+          this.saveEvent(data, false);
           return data;
         }
       }
     } catch {
-      // Cloudflare Pages Function not active or offline; smoothly fallback to local
+      // Cloudflare Pages Function not active or offline; fallback to local
     }
     return null;
   },
@@ -40,7 +43,6 @@ export const StorageService = {
   saveEvent(data: EventDataPackage, pushToCloud: boolean = true): void {
     try {
       localStorage.setItem(`${STORAGE_PREFIX}event_${data.event.id}`, JSON.stringify(data));
-      // Also maintain list of recent events
       const recent = this.getRecentEvents();
       const updatedRecent = [
         data.event.id,
@@ -48,18 +50,59 @@ export const StorageService = {
       ].slice(0, 10);
       localStorage.setItem(`${STORAGE_PREFIX}recent_events`, JSON.stringify(updatedRecent));
 
-      // Attempt async cloud sync for multi-device collaboration on Cloudflare Pages
       if (pushToCloud) {
+        // Full event initialization or admin update
         fetch('/api/event', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
-        }).catch(() => {
-          // Ignore offline / local development failures
-        });
+        }).catch(() => {});
       }
     } catch (e) {
       console.error('Failed to save event to localStorage', e);
+    }
+  },
+
+  /**
+   * Concurrency-safe delta save: Only syncs this specific friend's response.
+   * Completely eliminates last-write-wins collisions when 5 friends save simultaneously!
+   */
+  async saveParticipantResponseDelta(
+    eventId: string,
+    participant: Participant,
+    response: ParticipantResponse,
+    pin: string
+  ): Promise<void> {
+    try {
+      // 1. Update locally immediately
+      const data = this.getEvent(eventId);
+      if (data) {
+        const existingIdx = data.responses.findIndex(r => r.participantId === participant.id);
+        if (existingIdx >= 0) {
+          data.responses[existingIdx] = response;
+        } else {
+          data.responses.push(response);
+        }
+        if (!data.participants.some(p => p.id === participant.id)) {
+          data.participants.push(participant);
+        }
+        localStorage.setItem(`${STORAGE_PREFIX}event_${eventId}`, JSON.stringify(data));
+      }
+
+      // 2. Send delta write to edge API
+      fetch('/api/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save_response',
+          eventId,
+          participant,
+          response,
+          pin,
+        }),
+      }).catch(() => {});
+    } catch (e) {
+      console.error('Failed to save participant response delta', e);
     }
   },
 
@@ -72,7 +115,6 @@ export const StorageService = {
     }
   },
 
-  // Save admin key locally for creator recognition
   saveAdminKey(eventId: string, adminKey: string): void {
     try {
       localStorage.setItem(`${STORAGE_PREFIX}admin_${eventId}`, adminKey);
@@ -89,7 +131,6 @@ export const StorageService = {
     }
   },
 
-  // Save current participant session
   saveParticipantSession(eventId: string, participantId: string, pin: string): void {
     try {
       localStorage.setItem(`${STORAGE_PREFIX}session_${eventId}`, JSON.stringify({ participantId, pin }));
@@ -109,11 +150,12 @@ export const StorageService = {
 };
 
 /**
- * Creates seed demo data to allow immediate exploration
+ * Creates seed demo data using 100% timezone-safe date-fns parsing
  */
 export async function createDemoEvent(): Promise<EventDataPackage> {
   const adminKey = 'super-secret-demo-admin';
-  const adminKeyHash = await hashString(adminKey);
+  const eventId = 'demo-summer-trip';
+  const adminKeyHash = await hashAdminKey(eventId, adminKey);
 
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -121,7 +163,7 @@ export async function createDemoEvent(): Promise<EventDataPackage> {
   const endDate = `${currentYear}-08-15`;
 
   const event: TripEvent = {
-    id: 'demo-summer-trip',
+    id: eventId,
     title: 'Summer Getaway ☀️',
     description: 'Finding the best week for our summer vacation rental house!',
     destinationHint: 'Coast or Mountains',
@@ -134,14 +176,12 @@ export async function createDemoEvent(): Promise<EventDataPackage> {
     updatedAt: new Date().toISOString(),
   };
 
-  const pinHash = await hashString('1234');
-
   const participants: Participant[] = [
     {
       id: 'p-alex',
       eventId: event.id,
       name: 'Alex',
-      pinHash,
+      pinHash: await hashParticipantPin(eventId, 'p-alex', '1234'),
       color: 'bg-indigo-600',
       createdAt: new Date().toISOString(),
     },
@@ -149,7 +189,7 @@ export async function createDemoEvent(): Promise<EventDataPackage> {
       id: 'p-sam',
       eventId: event.id,
       name: 'Sam',
-      pinHash,
+      pinHash: await hashParticipantPin(eventId, 'p-sam', '1234'),
       color: 'bg-emerald-600',
       createdAt: new Date().toISOString(),
     },
@@ -157,7 +197,7 @@ export async function createDemoEvent(): Promise<EventDataPackage> {
       id: 'p-charlie',
       eventId: event.id,
       name: 'Charlie',
-      pinHash,
+      pinHash: await hashParticipantPin(eventId, 'p-charlie', '1234'),
       color: 'bg-amber-600',
       createdAt: new Date().toISOString(),
     },
@@ -165,7 +205,7 @@ export async function createDemoEvent(): Promise<EventDataPackage> {
       id: 'p-taylor',
       eventId: event.id,
       name: 'Taylor',
-      pinHash,
+      pinHash: await hashParticipantPin(eventId, 'p-taylor', '1234'),
       color: 'bg-rose-600',
       createdAt: new Date().toISOString(),
     },
@@ -173,32 +213,28 @@ export async function createDemoEvent(): Promise<EventDataPackage> {
       id: 'p-jordan',
       eventId: event.id,
       name: 'Jordan',
-      pinHash,
+      pinHash: await hashParticipantPin(eventId, 'p-jordan', '1234'),
       color: 'bg-purple-600',
       createdAt: new Date().toISOString(),
     },
   ];
 
-  // Populate realistic sample availability for demo
+  // Timezone-safe date list generation
+  const demoDates = getDatesInRange(startDate, endDate);
+
   const responses: ParticipantResponse[] = participants.map((p, pIndex) => {
     const availability: Record<string, { date: string; status: 'available' | 'maybe' | 'busy'; note?: string }> = {};
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const cur = new Date(start);
-
-    while (cur <= end) {
-      const dateStr = cur.toISOString().split('T')[0];
-      const dayOfMonth = cur.getDate();
-      const month = cur.getMonth() + 1; // 7 = July, 8 = August
+    for (const d of demoDates) {
+      const dateStr = format(d, 'yyyy-MM-dd');
+      const dayOfMonth = d.getDate();
+      const month = d.getMonth() + 1;
 
       let status: 'available' | 'maybe' | 'busy' = 'busy';
       let note: string | undefined = undefined;
 
       if (month === 7) {
-        // July
         if (dayOfMonth >= 18 && dayOfMonth <= 25) {
-          // Sweet spot: almost everyone free!
           if (pIndex === 3 && dayOfMonth === 25) {
             status = 'maybe';
             note = 'Might need to catch an evening train';
@@ -222,7 +258,6 @@ export async function createDemoEvent(): Promise<EventDataPackage> {
             note = 'Family wedding';
           }
         } else {
-          // Early July
           if (pIndex === 0 || pIndex === 4) {
             status = 'maybe';
           } else {
@@ -230,7 +265,6 @@ export async function createDemoEvent(): Promise<EventDataPackage> {
           }
         }
       } else {
-        // August
         if (dayOfMonth <= 7) {
           if (pIndex === 0 || pIndex === 2 || pIndex === 3) {
             status = 'available';
@@ -243,7 +277,6 @@ export async function createDemoEvent(): Promise<EventDataPackage> {
       }
 
       availability[dateStr] = { date: dateStr, status, note };
-      cur.setDate(cur.getDate() + 1);
     }
 
     return {

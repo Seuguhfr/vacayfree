@@ -80,9 +80,9 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
 
   return (
     <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 sm:p-5 shadow-xs space-y-4">
-      {/* Header & Duration picker */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-100">
-        <div>
+      {/* Header & Dedicated Full-Width Duration Selector Row */}
+      <div className="pb-3 border-b border-zinc-100 space-y-2.5">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="p-1 rounded-lg bg-emerald-50 text-emerald-700">
               <Trophy className="w-4 h-4 stroke-[2.2]" />
@@ -91,17 +91,25 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
               Best Vacation Windows
             </h2>
           </div>
-          <p className="text-xs text-zinc-500 mt-0.5">
-            Continuous date stretches ranked by friend attendance
-          </p>
+          {fullAttendanceCount > 0 ? (
+            <span className="text-[11px] text-emerald-800 font-bold bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-amber-500" />
+              {fullAttendanceCount} 100% Free
+            </span>
+          ) : (
+            <span className="text-[11px] text-zinc-400">{windows.length} options</span>
+          )}
         </div>
+        <p className="text-xs text-zinc-500">
+          Continuous date stretches ranked by friend attendance
+        </p>
 
-        {/* Duration Pills: Weekend (3d), 1 Week (7d), 2 Weeks (14d), Custom */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+        {/* Duration Pills: Dedicated full-width row with balanced columns */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1">
           <button
             type="button"
             onClick={() => handleSelectPreset(3)}
-            className={`px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
+            className={`py-1.5 px-2 rounded-xl text-xs font-semibold text-center transition-all cursor-pointer border ${
               !isCustom && targetDuration === 3
                 ? 'bg-zinc-900 text-white border-zinc-900 shadow-xs'
                 : 'bg-zinc-50 text-zinc-700 border-zinc-200/70 hover:bg-zinc-100'
@@ -113,7 +121,7 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
           <button
             type="button"
             onClick={() => handleSelectPreset(7)}
-            className={`px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
+            className={`py-1.5 px-2 rounded-xl text-xs font-semibold text-center transition-all cursor-pointer border ${
               !isCustom && targetDuration === 7
                 ? 'bg-zinc-900 text-white border-zinc-900 shadow-xs'
                 : 'bg-zinc-50 text-zinc-700 border-zinc-200/70 hover:bg-zinc-100'
@@ -125,7 +133,7 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
           <button
             type="button"
             onClick={() => handleSelectPreset(14)}
-            className={`px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
+            className={`py-1.5 px-2 rounded-xl text-xs font-semibold text-center transition-all cursor-pointer border ${
               !isCustom && targetDuration === 14
                 ? 'bg-zinc-900 text-white border-zinc-900 shadow-xs'
                 : 'bg-zinc-50 text-zinc-700 border-zinc-200/70 hover:bg-zinc-100'
@@ -140,7 +148,7 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
               setIsCustom(true);
               onChangeDuration(customDays);
             }}
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
+            className={`py-1.5 px-2 rounded-xl text-xs font-semibold text-center transition-all cursor-pointer border flex items-center justify-center gap-1 ${
               isCustom
                 ? 'bg-zinc-900 text-white border-zinc-900 shadow-xs'
                 : 'bg-zinc-50 text-zinc-700 border-zinc-200/70 hover:bg-zinc-100'
@@ -188,21 +196,6 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
         </div>
       )}
 
-      {/* Status summary */}
-      {totalFriends > 0 && windows.length > 0 && (
-        <div className="flex items-center justify-between text-xs text-zinc-600 px-1">
-          <span>{windows.length} possible {targetDuration}-day windows</span>
-          {fullAttendanceCount > 0 ? (
-            <span className="text-emerald-800 font-semibold flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-amber-500" />
-              {fullAttendanceCount} with 100% attendance
-            </span>
-          ) : (
-            <span className="text-zinc-500 text-[11px]">Best available matches</span>
-          )}
-        </div>
-      )}
-
       {/* Ranked Windows List */}
       {windows.length === 0 ? (
         <div className="text-center py-6 text-zinc-400 text-xs space-y-1">
@@ -232,81 +225,81 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
                     : 'border-zinc-200/90 bg-white hover:border-zinc-300'
                 }`}
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                  {/* Left: Medal + Dates */}
-                  <div className="flex items-start gap-2.5">
-                    <span className="text-xl select-none leading-none mt-0.5">
-                      {isGold ? '🥇' : isSilver ? '🥈' : isBronze ? '🥉' : `#${idx + 1}`}
-                    </span>
-                    <div>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <h4 className="text-sm font-bold text-zinc-900 tracking-tight">
-                          {formatWindowRange(win.startDate, win.endDate)}
-                        </h4>
-                        <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-600">
-                          {win.durationDays}d
-                        </span>
-                      </div>
-
-                      {/* Attendance breakdown */}
-                      <div className="mt-1">
-                        {win.fullAttendance ? (
-                          <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
-                            <CheckCircle className="w-3.5 h-3.5 stroke-[2.5]" />
-                            100% Free ({totalFriends}/{totalFriends} available every day)
-                          </span>
-                        ) : (
-                          <span className="text-xs font-semibold text-zinc-700 flex items-center gap-1.5">
-                            <span>Avg {Math.round(win.averageScore * totalFriends * 10) / 10}/{totalFriends} free</span>
-                            <span className="text-zinc-400 font-normal text-[11px]">
-                              (Worst day: {win.minAvailable} free)
-                            </span>
-                          </span>
-                        )}
-                      </div>
+                <div className="space-y-1.5">
+                  {/* Top line: Medal, Date Range, Duration Pill & Action Buttons */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-lg select-none leading-none shrink-0">
+                        {isGold ? '🥇' : isSilver ? '🥈' : isBronze ? '🥉' : `#${idx + 1}`}
+                      </span>
+                      <h4 className="text-sm font-bold text-zinc-900 tracking-tight truncate">
+                        {formatWindowRange(win.startDate, win.endDate)}
+                      </h4>
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-600 shrink-0">
+                        {win.durationDays}d
+                      </span>
                     </div>
-                  </div>
 
-                  {/* Right Actions: Eye Highlight always available; Organizer gets Finalize */}
-                  <div className="flex items-center gap-1.5 self-end sm:self-center">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectWindow(isSelected ? null : win);
-                      }}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
-                        isSelected
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                          : 'bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100'
-                      }`}
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>{isSelected ? 'Viewing' : 'Highlight'}</span>
-                    </button>
-
-                    {isAdmin && (
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          triggerCelebration(win);
+                          onSelectWindow(isSelected ? null : win);
                         }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 transition-colors cursor-pointer"
-                        title="Choose and lock this date (Organizer)"
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                            : 'bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100'
+                        }`}
                       >
-                        <Check className="w-3 h-3 text-amber-700 stroke-[2.5]" />
-                        <span>Lock Date</span>
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>{isSelected ? 'Viewing' : 'Highlight'}</span>
                       </button>
+
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            triggerCelebration(win);
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 transition-colors cursor-pointer"
+                          title="Choose and lock this date (Organizer)"
+                        >
+                          <Check className="w-3 h-3 text-amber-700 stroke-[2.5]" />
+                          <span>Lock Date</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Second line: Full horizontal attendance stats that never wrap awkwardly */}
+                  <div className="pt-0.5">
+                    {win.fullAttendance ? (
+                      <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
+                        <CheckCircle className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>100% Free ({totalFriends}/{totalFriends} available every day)</span>
+                      </span>
+                    ) : (
+                      <div className="flex items-center gap-2 text-xs font-semibold text-zinc-700 flex-wrap">
+                        <span className="text-emerald-800">
+                          Avg {Math.round(win.averageScore * totalFriends * 10) / 10}/{totalFriends} free
+                        </span>
+                        <span className="text-zinc-300">•</span>
+                        <span className="text-zinc-500 font-medium text-[11px]">
+                          Min {win.minAvailable} free on worst day
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>
 
                 {/* DISTINCT BADGES: Unavailable (Red) vs Maybe (Yellow) */}
-                {((win.unvailableParticipants && win.unvailableParticipants.length > 0) ||
+                {((win.unavailableParticipants && win.unavailableParticipants.length > 0) ||
                   (win.maybeParticipants && win.maybeParticipants.length > 0)) && (
                   <div className="mt-2.5 pt-2 border-t border-zinc-100 flex flex-wrap items-center gap-1.5 text-xs">
-                    {win.unvailableParticipants && win.unvailableParticipants.map(u => (
+                    {win.unavailableParticipants && win.unavailableParticipants.map(u => (
                       <span
                         key={`unavail-${u.id}`}
                         className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200/70"

@@ -199,7 +199,7 @@ export function calculateTripWindows(
       fullAttendance,
       attendancePercentage,
       daySummaries,
-      unvailableParticipants: unvailableList.sort((a, b) => b.daysUnavailable - a.daysUnavailable),
+      unavailableParticipants: unvailableList.sort((a, b) => b.daysUnavailable - a.daysUnavailable),
       maybeParticipants: maybeList.sort((a, b) => b.daysMaybe - a.daysMaybe),
     });
   }

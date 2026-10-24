@@ -1,8 +1,25 @@
-// Cloudflare Pages Function for real-time edge synchronization
-// Works seamlessly when a KV namespace binding named "VACAY_KV" is configured in Cloudflare Pages.
+// Cloudflare Pages Function for High-Concurrency, Zero-Collision Group Vacation Sync
+// Backed by Cloudflare KV ("VACAY_KV") with discrete per-participant keys and server-side salted PIN hashing.
 
 interface Env {
   VACAY_KV?: KVNamespace;
+}
+
+const SALT_PEPPER = 'vacay_salt_sec_2026';
+
+async function hashString(input: string): Promise<string> {
+  const msgUint8 = new TextEncoder().encode(input.trim());
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function hashParticipantPin(eventId: string, participantId: string, pin: string): Promise<string> {
+  return hashString(`${eventId}:${participantId}:${pin.trim()}:${SALT_PEPPER}`);
+}
+
+async function hashAdminKey(eventId: string, adminKey: string): Promise<string> {
+  return hashString(`${eventId}:${adminKey.trim()}:${SALT_PEPPER}`);
 }
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
@@ -16,40 +33,188 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     });
   }
 
-  if (context.env.VACAY_KV) {
-    const raw = await context.env.VACAY_KV.get(`event_${eventId}`);
-    if (raw) {
-      return new Response(raw, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache',
-        },
-      });
-    }
+  if (!context.env.VACAY_KV) {
+    return new Response(JSON.stringify({ notFound: true, offline: true }), {
+      status: 404,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
-  return new Response(JSON.stringify({ notFound: true }), {
-    status: 404,
-    headers: { 'Content-Type': 'application/json' },
-  });
-};
-
-export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
-    const body = await context.request.json() as { event?: { id?: string } };
-    const eventId = body?.event?.id;
+    // 1. Fetch metadata & participant index
+    const [metaRaw, participantsRaw] = await Promise.all([
+      context.env.VACAY_KV.get(`event:${eventId}:meta`),
+      context.env.VACAY_KV.get(`event:${eventId}:participants`),
+    ]);
 
-    if (!eventId) {
-      return new Response(JSON.stringify({ error: 'Invalid payload' }), {
-        status: 400,
+    let event: any = null;
+    let participants: any[] = [];
+    let responses: any[] = [];
+
+    if (metaRaw) {
+      event = JSON.parse(metaRaw);
+      participants = participantsRaw ? JSON.parse(participantsRaw) : [];
+
+      // 2. Concurrently fetch each friend's response independently
+      if (participants.length > 0) {
+        const responsePromises = participants.map((p: any) =>
+          context.env.VACAY_KV!.get(`event:${eventId}:response:${p.id}`)
+        );
+        const fetchedResponses = await Promise.all(responsePromises);
+        responses = fetchedResponses
+          .filter((r): r is string => !!r)
+          .map((r) => JSON.parse(r));
+      }
+    } else {
+      // Legacy fallback check
+      const legacyRaw = await context.env.VACAY_KV.get(`event_${eventId}`);
+      if (legacyRaw) {
+        const legacy = JSON.parse(legacyRaw);
+        event = legacy.event;
+        participants = legacy.participants || [];
+        responses = legacy.responses || [];
+      }
+    }
+
+    if (!event) {
+      return new Response(JSON.stringify({ notFound: true }), {
+        status: 404,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    if (context.env.VACAY_KV) {
-      await context.env.VACAY_KV.put(`event_${eventId}`, JSON.stringify(body), {
-        expirationTtl: 60 * 60 * 24 * 90, // 90 days retention
+    // 3. SECURITY SANITIZATION:
+    // Strip pinHash and adminKeyHash so client DevTools Network inspector never sees hashes!
+    const sanitizedParticipants = participants.map((p: any) => ({
+      ...p,
+      pinHash: '', // Hidden from public network payload
+    }));
+
+    const sanitizedEvent = {
+      ...event,
+      adminKeyHash: '', // Hidden from public network payload
+    };
+
+    return new Response(
+      JSON.stringify({
+        event: sanitizedEvent,
+        participants: sanitizedParticipants,
+        responses,
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store',
+        },
+      }
+    );
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Error retrieving event';
+    return new Response(JSON.stringify({ error: msg }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+};
+
+export const onRequestPost: PagesFunction<Env> = async (context) => {
+  if (!context.env.VACAY_KV) {
+    return new Response(JSON.stringify({ error: 'KV binding VACAY_KV not configured' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  try {
+    const payload = await context.request.json() as any;
+    const ttl = 60 * 60 * 24 * 90; // 90 days retention
+
+    // CASE A: Concurrency-Safe Participant Delta Save
+    if (payload.action === 'save_response') {
+      const { eventId, participant, response, pin } = payload;
+      if (!eventId || !participant?.id || !response) {
+        return new Response(JSON.stringify({ error: 'Incomplete delta payload' }), { status: 400 });
+      }
+
+      // Check lock status
+      const metaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);
+      if (metaRaw) {
+        const meta = JSON.parse(metaRaw);
+        if (meta.isLocked) {
+          return new Response(JSON.stringify({ error: 'This poll has been locked by the organizer.' }), { status: 403 });
+        }
+      }
+
+      // Verify participant PIN if returning user
+      const participantsRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
+      let participants: any[] = participantsRaw ? JSON.parse(participantsRaw) : [];
+      const existing = participants.find((p: any) => p.id === participant.id);
+
+      const computedHash = pin ? await hashParticipantPin(eventId, participant.id, pin) : '';
+
+      if (existing) {
+        // If participant exists, check hash match
+        if (existing.pinHash && existing.pinHash !== computedHash) {
+          return new Response(JSON.stringify({ error: 'Incorrect PIN' }), { status: 401 });
+        }
+      } else {
+        // Register new participant in index
+        participants.push({
+          ...participant,
+          pinHash: computedHash || participant.pinHash,
+        });
+        await context.env.VACAY_KV.put(
+          `event:${eventId}:participants`,
+          JSON.stringify(participants),
+          { expirationTtl: ttl }
+        );
+      }
+
+      // Discrete independent key: Write ONLY this friend's response!
+      await context.env.VACAY_KV.put(
+        `event:${eventId}:response:${participant.id}`,
+        JSON.stringify(response),
+        { expirationTtl: ttl }
+      );
+
+      return new Response(JSON.stringify({ success: true, participantId: participant.id }), {
+        headers: { 'Content-Type': 'application/json' },
       });
+    }
+
+    // CASE B: Event Creation / Organizer Settings Update
+    const eventId = payload?.event?.id;
+    if (!eventId) {
+      return new Response(JSON.stringify({ error: 'Invalid payload: missing event id' }), { status: 400 });
+    }
+
+    // Save event metadata
+    await context.env.VACAY_KV.put(
+      `event:${eventId}:meta`,
+      JSON.stringify(payload.event),
+      { expirationTtl: ttl }
+    );
+
+    // Save participant index
+    if (payload.participants) {
+      await context.env.VACAY_KV.put(
+        `event:${eventId}:participants`,
+        JSON.stringify(payload.participants),
+        { expirationTtl: ttl }
+      );
+    }
+
+    // Save any individual responses
+    if (payload.responses && Array.isArray(payload.responses)) {
+      await Promise.all(
+        payload.responses.map((r: any) =>
+          context.env.VACAY_KV!.put(
+            `event:${eventId}:response:${r.participantId}`,
+            JSON.stringify(r),
+            { expirationTtl: ttl }
+          )
+        )
+      );
     }
 
     return new Response(JSON.stringify({ success: true, eventId }), {

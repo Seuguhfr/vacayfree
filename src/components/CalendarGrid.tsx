@@ -408,14 +408,14 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                         )}
                       </div>
 
-                      {/* Clean fraction + maybe indicator dot (No confusing %!) */}
+                      {/* Clean fraction + maybe indicator badge (High contrast & accessible) */}
                       <div className="w-full flex items-center justify-between text-[11px] leading-tight">
                         <span className="font-bold">
                           {total > 0 ? `${availableCount}/${total}` : '-'}
                         </span>
                         {maybeCount > 0 && !is100Percent && (
                           <span
-                            className="text-[9px] font-semibold px-1 rounded-sm bg-amber-400/30 text-amber-950"
+                            className="text-[10px] font-bold px-1 py-0.2 rounded bg-zinc-900 text-amber-300 shadow-xs"
                             title={`${maybeCount} friend(s) marked maybe`}
                           >
                             +{maybeCount}m

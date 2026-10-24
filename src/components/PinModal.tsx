@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal } from './ui/Modal';
 import { Participant } from '../types';
-import { hashString, generateRandomId } from '../utils/security';
+import { hashString, hashParticipantPin, generateRandomId } from '../utils/security';
 import { getParticipantColor } from '../utils/colors';
 import { StorageService } from '../services/storage';
 import { KeyRound, UserPlus, Lock } from 'lucide-react';
@@ -48,8 +48,6 @@ export const PinModal: React.FC<PinModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      const pinHash = await hashString(pin.trim());
-
       if (mode === 'create') {
         if (!name.trim()) {
           setError('Please enter your name.');
@@ -70,8 +68,11 @@ export const PinModal: React.FC<PinModalProps> = ({
           return;
         }
 
+        const participantId = `p-${generateRandomId(6)}`;
+        const pinHash = await hashParticipantPin(eventId, participantId, pin.trim());
+
         const newParticipant: Participant = {
-          id: `p-${generateRandomId(6)}`,
+          id: participantId,
           eventId,
           name: name.trim(),
           pinHash,
@@ -91,7 +92,11 @@ export const PinModal: React.FC<PinModalProps> = ({
           return;
         }
 
-        if (p.pinHash !== pinHash) {
+        const saltedHash = await hashParticipantPin(eventId, p.id, pin.trim());
+        const legacyHash = await hashString(pin.trim());
+
+        // Validate salted hash or legacy unsalted fallback
+        if (p.pinHash && p.pinHash !== saltedHash && p.pinHash !== legacyHash) {
           setError('Incorrect PIN. If you forgot your PIN, ask the trip organizer to click "Reset PIN" for you.');
           setIsSubmitting(false);
           return;

@@ -12,7 +12,7 @@ import {
   calculateTripWindows,
   getDatesInRange,
 } from './utils/dateCalc';
-import { hashString } from './utils/security';
+import { hashString, hashAdminKey } from './utils/security';
 import {
   StorageService,
   createDemoEvent,
@@ -30,7 +30,7 @@ import { PinModal } from './components/PinModal';
 import { DayDetailsModal } from './components/DayDetailsModal';
 import { DayNoteModal } from './components/DayNoteModal';
 
-import { Palmtree, Sparkles, Plus, Calendar, Users, Compass, UserPlus } from 'lucide-react';
+import { Palmtree, Sparkles, Plus, Calendar, Users, Compass } from 'lucide-react';
 
 export default function App() {
   const [eventData, setEventData] = useState<EventDataPackage | null>(null);
@@ -95,8 +95,9 @@ export default function App() {
       const storedAdminKey = StorageService.getAdminKey(eventId);
       const activeAdminKey = adminParam || storedAdminKey;
       if (activeAdminKey) {
-        const hash = await hashString(activeAdminKey);
-        if (hash === data.event.adminKeyHash) {
+        const saltedHash = await hashAdminKey(data.event.id, activeAdminKey);
+        const legacyHash = await hashString(activeAdminKey);
+        if (saltedHash === data.event.adminKeyHash || legacyHash === data.event.adminKeyHash) {
           setIsAdmin(true);
           setAdminKey(activeAdminKey);
           StorageService.saveAdminKey(eventId, activeAdminKey);
@@ -227,7 +228,13 @@ export default function App() {
     };
 
     setEventData(updatedPackage);
-    StorageService.saveEvent(updatedPackage);
+    const session = StorageService.getParticipantSession(eventData.event.id);
+    StorageService.saveParticipantResponseDelta(
+      eventData.event.id,
+      currentParticipant,
+      newRecord,
+      session?.pin || ''
+    );
   };
 
   const handleSelectParticipant = (p: Participant) => {
@@ -244,8 +251,9 @@ export default function App() {
 
   const handleVerifyAdmin = async (keyInput: string) => {
     if (!eventData) return false;
-    const hash = await hashString(keyInput);
-    if (hash === eventData.event.adminKeyHash) {
+    const saltedHash = await hashAdminKey(eventData.event.id, keyInput);
+    const legacyHash = await hashString(keyInput);
+    if (saltedHash === eventData.event.adminKeyHash || legacyHash === eventData.event.adminKeyHash) {
       setIsAdmin(true);
       setAdminKey(keyInput);
       StorageService.saveAdminKey(eventData.event.id, keyInput);
@@ -397,37 +405,10 @@ export default function App() {
         ) : (
           /* Active Poll Dashboard */
           <div className="space-y-5 animate-in fade-in duration-200">
-            {/* Poll Title & Description Banner */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200/80 shadow-xs">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-zinc-950">
-                  {eventData.event.title}
-                </h1>
-                {eventData.event.description && (
-                  <p className="text-xs sm:text-sm text-zinc-600 mt-0.5">
-                    {eventData.event.description}
-                  </p>
-                )}
-              </div>
-
-              {/* High-visibility "+ Add Your Dates" CTA for participants who haven't submitted dates yet */}
-              {!currentParticipant && !eventData.event.isLocked && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPinTarget(null);
-                    setIsPinOpen(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition-all cursor-pointer shadow-sm shadow-emerald-600/20 shrink-0"
-                >
-                  <UserPlus className="w-4 h-4 stroke-[2.5]" />
-                  <span>+ Add Your Dates</span>
-                </button>
-              )}
-            </div>
-
-            {/* Participant Bar & Sessions */}
+            {/* Unified Header Card (Title, Active Session, and Participants) */}
             <ParticipantBar
+              eventTitle={eventData.event.title}
+              eventDescription={eventData.event.description}
               participants={eventData.participants}
               responses={eventData.responses}
               currentParticipant={currentParticipant}
