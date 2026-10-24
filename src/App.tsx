@@ -11,6 +11,7 @@ import {
   calculateDaySummaries,
   calculateTripWindows,
   getDatesInRange,
+  formatWindowRange,
 } from './utils/dateCalc';
 import { hashString, hashAdminKey } from './utils/security';
 import {
@@ -30,7 +31,7 @@ import { PinModal } from './components/PinModal';
 import { DayDetailsModal } from './components/DayDetailsModal';
 import { DayNoteModal } from './components/DayNoteModal';
 
-import { Palmtree, Sparkles, Plus, Calendar, Users, Compass } from 'lucide-react';
+import { Palmtree, Sparkles, Plus, Calendar, Users, Compass, Eye } from 'lucide-react';
 
 export default function App() {
   const [eventData, setEventData] = useState<EventDataPackage | null>(null);
@@ -337,7 +338,7 @@ export default function App() {
         onGoHome={handleGoHome}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 pt-5 sm:pt-6">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-5 sm:pt-6">
         {!eventData ? (
           /* Landing Hero View */
           <div className="max-w-2xl mx-auto text-center py-12 sm:py-20 space-y-8 animate-in fade-in duration-300">
@@ -404,7 +405,7 @@ export default function App() {
           </div>
         ) : (
           /* Active Poll Dashboard */
-          <div className="space-y-5 animate-in fade-in duration-200">
+          <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-200">
             {/* Unified Header Card (Title, Active Session, and Participants) */}
             <ParticipantBar
               eventTitle={eventData.event.title}
@@ -421,37 +422,96 @@ export default function App() {
               onLogoutParticipant={handleLogoutParticipant}
             />
 
-            {/* 2-COLUMN SPLIT LAYOUT (Solves the "Highlight" Scroll Paradox!) */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-              {/* Left/Main Column: Calendar Heatmap & Paint Mode */}
-              <div className="lg:col-span-7 xl:col-span-8 order-2 lg:order-1">
-                <CalendarGrid
-                  startDateStr={eventData.event.startDate}
-                  endDateStr={eventData.event.endDate}
-                  daySummaries={daySummaries}
-                  selectedWindow={selectedWindow}
-                  currentParticipant={currentParticipant}
-                  myResponse={myResponse}
-                  onSaveAvailability={handleSaveAvailability}
-                  onSelectDayDetails={setSelectedDaySummary}
-                  onOpenDayNote={handleOpenDayNote}
-                />
-              </div>
+            {/* TOP MATCH PODIUM STRIP (Instant glance before scrolling) */}
+            {tripWindows.length > 0 && (
+              <div className="bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-teal-500/10 border border-amber-500/30 rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl select-none leading-none">🥇</span>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold uppercase tracking-wider text-amber-900">
+                        Best Trip Match:
+                      </span>
+                      <span className="text-sm sm:text-base font-extrabold text-zinc-950">
+                        {formatWindowRange(tripWindows[0].startDate, tripWindows[0].endDate)}
+                      </span>
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        {tripWindows[0].fullAttendance
+                          ? '100% Free'
+                          : `${Math.round(tripWindows[0].averageScore * 100)}% Match`}
+                      </span>
+                      <span className="text-[11px] font-semibold text-zinc-500">
+                        ({targetDuration}d)
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-600 mt-0.5">
+                      {tripWindows[0].fullAttendance
+                        ? `All ${eventData.participants.length} friends free every day!`
+                        : `Avg ${Math.round(tripWindows[0].averageScore * eventData.participants.length * 10) / 10}/${eventData.participants.length} friends free (min ${tripWindows[0].minAvailable})`}
+                    </p>
+                  </div>
+                </div>
 
-              {/* Right Column (Sticky on Desktop): Smart Trip Window Finder */}
-              <div className="lg:col-span-5 xl:col-span-4 order-1 lg:order-2 lg:sticky lg:top-20">
-                <TripWindowFinder
-                  windows={tripWindows}
-                  selectedWindow={selectedWindow}
-                  onSelectWindow={setSelectedWindow}
-                  targetDuration={targetDuration}
-                  onChangeDuration={setTargetDuration}
-                  participants={eventData.participants}
-                  isAdmin={isAdmin}
-                  onFinalizeDate={handleFinalizeWindow}
-                />
+                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const isSelected =
+                        selectedWindow &&
+                        selectedWindow.startDate === tripWindows[0].startDate &&
+                        selectedWindow.endDate === tripWindows[0].endDate;
+                      setSelectedWindow(isSelected ? null : tripWindows[0]);
+                      document.getElementById('calendar-section')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-zinc-800 border border-zinc-200/90 hover:bg-zinc-100 shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-zinc-600" />
+                    <span>
+                      {selectedWindow?.startDate === tripWindows[0].startDate ? 'Viewing' : 'Highlight'}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      document.getElementById('windows-section')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="text-xs font-semibold text-zinc-600 hover:text-zinc-900 px-2 py-1 cursor-pointer transition-colors"
+                  >
+                    See all options ↓
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* FULL-WIDTH CALENDAR HEATMAP (Spacious 2-Month Grid on Top) */}
+            <section id="calendar-section" className="scroll-mt-20">
+              <CalendarGrid
+                startDateStr={eventData.event.startDate}
+                endDateStr={eventData.event.endDate}
+                daySummaries={daySummaries}
+                selectedWindow={selectedWindow}
+                currentParticipant={currentParticipant}
+                myResponse={myResponse}
+                onSaveAvailability={handleSaveAvailability}
+                onSelectDayDetails={setSelectedDaySummary}
+                onOpenDayNote={handleOpenDayNote}
+              />
+            </section>
+
+            {/* FULL-WIDTH SMART TRIP WINDOW FINDER (Horizontal 3-Column Podium Cards Below) */}
+            <section id="windows-section" className="scroll-mt-20">
+              <TripWindowFinder
+                windows={tripWindows}
+                selectedWindow={selectedWindow}
+                onSelectWindow={setSelectedWindow}
+                targetDuration={targetDuration}
+                onChangeDuration={setTargetDuration}
+                participants={eventData.participants}
+                isAdmin={isAdmin}
+                onFinalizeDate={handleFinalizeWindow}
+              />
+            </section>
           </div>
         )}
       </main>

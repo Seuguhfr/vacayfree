@@ -287,9 +287,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
               </div>
 
               {/* Days Grid */}
-              <div className="grid grid-cols-7 gap-1.5 select-none">
+              <div className="grid grid-cols-7 gap-1.5 sm:gap-2 select-none">
                 {leadingBlanks.map((_, i) => (
-                  <div key={`blank-${i}`} className="h-11 sm:h-12 rounded-xl" />
+                  <div key={`blank-${i}`} className="min-h-[58px] sm:min-h-[66px] rounded-xl" />
                 ))}
 
                 {daysInMonth.map((dayObj) => {
@@ -304,7 +304,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                     return (
                       <div
                         key={dateKey}
-                        className="h-11 sm:h-12 rounded-xl flex items-center justify-center text-xs text-zinc-300 font-medium cursor-not-allowed bg-zinc-50/50"
+                        className="min-h-[58px] sm:min-h-[66px] rounded-xl flex items-center justify-center text-xs text-zinc-300 font-medium cursor-not-allowed bg-zinc-50/50"
                       >
                         {format(dayObj, 'd')}
                       </div>
@@ -331,7 +331,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                         key={dateKey}
                         onPointerDown={() => handleCellPointerDown(dateKey)}
                         onPointerEnter={() => handleCellPointerEnter(dateKey)}
-                        className={`h-11 sm:h-12 rounded-xl border flex flex-col items-center justify-between p-1.5 transition-all cursor-pointer calendar-cell ${bgClass} active:scale-95`}
+                        className={`min-h-[58px] sm:min-h-[66px] rounded-xl border flex flex-col items-center justify-between p-2 transition-all cursor-pointer calendar-cell ${bgClass} active:scale-95`}
                       >
                         <div className="w-full flex items-center justify-between">
                           <span className="text-xs font-bold leading-none">
@@ -346,16 +346,16 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                             className={`p-0.5 rounded transition-colors ${
                               hasNote
                                 ? status === 'available'
-                                  ? 'text-white bg-emerald-700/60'
-                                  : 'text-amber-950 bg-amber-500/40'
+                                ? 'text-white bg-emerald-700/60'
+                                : 'text-amber-950 bg-amber-500/40'
                                 : 'text-zinc-400 hover:text-zinc-700'
                             }`}
                             title={hasNote ? `Note: ${myDay?.note}` : 'Add note'}
                           >
-                            <MessageSquare className="w-3 h-3" />
+                            <MessageSquare className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                        <span className="text-[10px] font-semibold uppercase tracking-wider opacity-90">
+                        <span className="text-[10px] font-bold uppercase tracking-wider opacity-90">
                           {status}
                         </span>
                       </div>
@@ -390,37 +390,37 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                       key={dateKey}
                       type="button"
                       onClick={() => daySummary && onSelectDayDetails(daySummary)}
-                      className={`h-11 sm:h-12 rounded-xl border flex flex-col items-center justify-between p-1.5 transition-all text-left cursor-pointer calendar-cell ${cellColor} ${
+                      className={`min-h-[58px] sm:min-h-[66px] rounded-xl border flex flex-col items-center justify-between p-2 transition-all text-left cursor-pointer calendar-cell ${cellColor} ${
                         isInSelectedWindow
-                          ? 'ring-3 ring-indigo-500 ring-offset-1 scale-[1.03] z-10'
+                          ? 'ring-3 ring-indigo-500 ring-offset-2 scale-[1.03] z-10 shadow-md'
                           : 'hover:scale-[1.02]'
                       }`}
                     >
+                      {/* Top row: Date Number + 100% Sparkle OR subtle Amber Dot for Maybes */}
                       <div className="w-full flex items-center justify-between">
                         <span className="text-xs font-bold leading-none">
                           {format(dayObj, 'd')}
                         </span>
-                        {is100Percent && (
-                          <Sparkles className="w-3 h-3 text-amber-300" />
-                        )}
-                        {hasNotes && !is100Percent && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Has notes" />
-                        )}
+                        {is100Percent ? (
+                          <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300/30" />
+                        ) : maybeCount > 0 ? (
+                          <span
+                            className="w-2 h-2 rounded-full bg-amber-400 ring-1 ring-white/50 shrink-0"
+                            title={`${maybeCount} friend(s) marked maybe`}
+                          />
+                        ) : hasNotes ? (
+                          <span
+                            className="w-1.5 h-1.5 rounded-full bg-zinc-400 shrink-0"
+                            title="Has notes"
+                          />
+                        ) : null}
                       </div>
 
-                      {/* Clean fraction + maybe indicator badge (High contrast & accessible) */}
-                      <div className="w-full flex items-center justify-between text-[11px] leading-tight">
-                        <span className="font-bold">
+                      {/* Bottom row: Clean fraction only (Zero visual clutter) */}
+                      <div className="w-full flex items-center justify-start">
+                        <span className="text-[12px] font-bold tracking-tight">
                           {total > 0 ? `${availableCount}/${total}` : '-'}
                         </span>
-                        {maybeCount > 0 && !is100Percent && (
-                          <span
-                            className="text-[10px] font-bold px-1 py-0.2 rounded bg-zinc-900 text-amber-300 shadow-xs"
-                            title={`${maybeCount} friend(s) marked maybe`}
-                          >
-                            +{maybeCount}m
-                          </span>
-                        )}
                       </div>
                     </button>
                   );
