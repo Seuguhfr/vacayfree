@@ -182,7 +182,47 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       });
     }
 
-    // CASE B: Event Creation / Organizer Settings Update
+    // CASE B: Event Deletion (Organizer only)
+    if (payload.action === 'delete_event') {
+      const { eventId, adminKey } = payload;
+      if (!eventId || !adminKey) {
+        return new Response(JSON.stringify({ error: 'Missing event ID or admin key' }), { status: 400 });
+      }
+
+      const metaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);
+      if (!metaRaw) {
+        return new Response(JSON.stringify({ notFound: true }), { status: 404 });
+      }
+
+      const meta = JSON.parse(metaRaw);
+      const computedAdminHash = await hashAdminKey(eventId, adminKey);
+      const legacyAdminHash = await hashString(adminKey);
+
+      if (meta.adminKeyHash !== computedAdminHash && meta.adminKeyHash !== legacyAdminHash) {
+        return new Response(JSON.stringify({ error: 'Unauthorized: Invalid admin key' }), { status: 401 });
+      }
+
+      // Delete participants and responses
+      const participantsRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
+      if (participantsRaw) {
+        const parts = JSON.parse(participantsRaw);
+        await Promise.all(
+          parts.map((p: any) => context.env.VACAY_KV!.delete(`event:${eventId}:response:${p.id}`))
+        );
+      }
+
+      await Promise.all([
+        context.env.VACAY_KV.delete(`event:${eventId}:meta`),
+        context.env.VACAY_KV.delete(`event:${eventId}:participants`),
+        context.env.VACAY_KV.delete(`event_${eventId}`),
+      ]);
+
+      return new Response(JSON.stringify({ success: true, deleted: eventId }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // CASE C: Event Creation / Organizer Settings Update
     const eventId = payload?.event?.id;
     if (!eventId) {
       return new Response(JSON.stringify({ error: 'Invalid payload: missing event id' }), { status: 400 });
@@ -227,4 +267,49 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       headers: { 'Content-Type': 'application/json' },
     });
   }
+};
+
+export const onRequestDelete: PagesFunction<Env> = async (context) => {
+  const url = new URL(context.request.url);
+  const eventId = url.searchParams.get('id');
+  const adminKey = url.searchParams.get('admin');
+
+  if (!context.env.VACAY_KV) {
+    return new Response(JSON.stringify({ error: 'KV not configured' }), { status: 503 });
+  }
+
+  if (!eventId || !adminKey) {
+    return new Response(JSON.stringify({ error: 'Missing event ID or admin key' }), { status: 400 });
+  }
+
+  const metaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);
+  if (!metaRaw) {
+    return new Response(JSON.stringify({ notFound: true }), { status: 404 });
+  }
+
+  const meta = JSON.parse(metaRaw);
+  const computedAdminHash = await hashAdminKey(eventId, adminKey);
+  const legacyAdminHash = await hashString(adminKey);
+
+  if (meta.adminKeyHash !== computedAdminHash && meta.adminKeyHash !== legacyAdminHash) {
+    return new Response(JSON.stringify({ error: 'Unauthorized: Invalid admin key' }), { status: 401 });
+  }
+
+  const participantsRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
+  if (participantsRaw) {
+    const parts = JSON.parse(participantsRaw);
+    await Promise.all(
+      parts.map((p: any) => context.env.VACAY_KV!.delete(`event:${eventId}:response:${p.id}`))
+    );
+  }
+
+  await Promise.all([
+    context.env.VACAY_KV.delete(`event:${eventId}:meta`),
+    context.env.VACAY_KV.delete(`event:${eventId}:participants`),
+    context.env.VACAY_KV.delete(`event_${eventId}`),
+  ]);
+
+  return new Response(JSON.stringify({ success: true, deleted: eventId }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
 };

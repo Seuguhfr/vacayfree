@@ -74,6 +74,9 @@ export default function App() {
     }
     if (!data) {
       data = await StorageService.fetchCloudEvent(eventId);
+    } else if (!eventId.startsWith('demo-')) {
+      // Auto-sync locally cached event to Cloudflare KV for any polls created before edge sync was live
+      StorageService.pushEventToCloud(data);
     }
 
     if (data) {
@@ -306,6 +309,14 @@ export default function App() {
       isLocked: false,
       lockedWindow: undefined,
     });
+  };
+
+  const handleDeletePoll = async () => {
+    if (!eventData) return;
+    const pollId = eventData.event.id;
+    await StorageService.deleteEvent(pollId, adminKey);
+    setIsAdminOpen(false);
+    handleGoHome();
   };
 
   return (
@@ -567,6 +578,7 @@ export default function App() {
             onVerifyAdmin={handleVerifyAdmin}
             onUpdateEvent={handleUpdateEvent}
             onDeleteParticipant={handleDeleteParticipant}
+            onDeletePoll={handleDeletePoll}
           />
 
           <PinModal

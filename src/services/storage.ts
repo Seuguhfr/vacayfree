@@ -55,14 +55,51 @@ export const StorageService = {
 
       if (pushToCloud) {
         // Full event initialization or admin update
-        fetch('/api/event', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        }).catch(() => {});
+        this.pushEventToCloud(data);
       }
     } catch (e) {
       console.error('Failed to save event to localStorage', e);
+    }
+  },
+
+  async pushEventToCloud(data: EventDataPackage): Promise<boolean> {
+    if (data.event.id.startsWith('demo-')) return false;
+    try {
+      const res = await fetch('/api/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  async deleteEvent(eventId: string, adminKey?: string | null): Promise<boolean> {
+    try {
+      // 1. Clear local storage keys
+      localStorage.removeItem(`${STORAGE_PREFIX}event_${eventId}`);
+      localStorage.removeItem(`${STORAGE_PREFIX}admin_${eventId}`);
+      localStorage.removeItem(`${STORAGE_PREFIX}session_${eventId}`);
+      this.removeRecentEvent(eventId);
+
+      // 2. Delete from cloud if adminKey provided
+      if (adminKey && !eventId.startsWith('demo-')) {
+        await fetch('/api/event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'delete_event',
+            eventId,
+            adminKey,
+          }),
+        }).catch(() => {});
+      }
+      return true;
+    } catch (e) {
+      console.error('Failed to delete event', e);
+      return false;
     }
   },
 

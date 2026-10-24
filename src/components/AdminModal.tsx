@@ -15,6 +15,7 @@ interface AdminModalProps {
   onVerifyAdmin: (adminKey: string) => Promise<boolean>;
   onUpdateEvent: (updated: Partial<TripEvent>) => void;
   onDeleteParticipant: (participantId: string) => void;
+  onDeletePoll?: () => void;
 }
 
 export const AdminModal: React.FC<AdminModalProps> = ({
@@ -27,6 +28,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   onVerifyAdmin,
   onUpdateEvent,
   onDeleteParticipant,
+  onDeletePoll,
 }) => {
   const [inputKey, setInputKey] = useState('');
   const [keyError, setKeyError] = useState<string | null>(null);
@@ -326,6 +328,34 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               )}
             </div>
           </div>
+
+          {/* Danger Zone: Permanent Poll Deletion */}
+          {onDeletePoll && (
+            <div className="pt-4 border-t border-rose-100">
+              <div className="p-3.5 rounded-xl bg-rose-50/60 border border-rose-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs font-bold text-rose-900 flex items-center gap-1.5">
+                    <Trash2 className="w-4 h-4 text-rose-600" />
+                    <span>Delete Vacation Poll</span>
+                  </div>
+                  <p className="text-[11px] text-rose-700 mt-0.5 leading-tight">
+                    Permanently delete this poll and all responses from cloud and storage.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm(`Are you sure you want to permanently delete "${event.title}"? This cannot be undone.`)) {
+                      onDeletePoll();
+                    }
+                  }}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-colors cursor-pointer shrink-0"
+                >
+                  Delete Poll
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </Modal>
