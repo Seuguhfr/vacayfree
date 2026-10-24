@@ -52,7 +52,7 @@ export interface TranslationDictionary {
   brushLabel: string;
   brushFree: string;
   brushMaybe: string;
-  brushClear: string;
+  brushBusy: string;
   allFree: string;
   allBusy: string;
   resetChanges: string;

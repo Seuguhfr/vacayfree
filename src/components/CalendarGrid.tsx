@@ -237,14 +237,14 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
 
               {/* Brush selection (visible when in painter tab) */}
               {viewTab === 'paint' && (
-                <div className="flex items-center gap-1.5 pl-1 sm:pl-2 sm:border-l sm:border-zinc-200">
+                <div className="flex items-center gap-1.5 pl-1 sm:pl-2 sm:border-l sm:border-zinc-200 shrink-0">
                   <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider hidden sm:inline">
                     {t.brushLabel}
                   </span>
                   <button
                     type="button"
                     onClick={() => setBrushStatus('available')}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                       brushStatus === 'available'
                         ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/20'
                         : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
@@ -256,7 +256,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                   <button
                     type="button"
                     onClick={() => setBrushStatus('maybe')}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                       brushStatus === 'maybe'
                         ? 'bg-amber-500 text-white border-amber-500 shadow-xs ring-2 ring-amber-500/20'
                         : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
@@ -268,15 +268,15 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                   <button
                     type="button"
                     onClick={() => setBrushStatus('busy')}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                       brushStatus === 'busy'
-                        ? 'bg-zinc-800 text-white border-zinc-800 shadow-xs'
-                        : 'bg-zinc-100 text-zinc-700 border-zinc-200 hover:bg-zinc-200'
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-xs ring-2 ring-rose-500/20'
+                        : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
                     }`}
-                    title={t.brushClear}
+                    title={t.brushBusy}
                   >
                     <XCircle className="w-3.5 h-3.5" />
-                    <span>{t.brushClear}</span>
+                    <span>{t.brushBusy}</span>
                   </button>
                 </div>
               )}
@@ -299,18 +299,18 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
 
           {/* Right side controls */}
           {currentParticipant && viewTab === 'paint' ? (
-            <div className="flex items-center gap-2 self-end md:self-auto">
+            <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 whitespace-nowrap">
               <button
                 type="button"
                 onClick={() => handleQuickFill('available')}
-                className="text-[11px] font-medium text-zinc-600 hover:text-zinc-900 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
+                className="text-[11px] font-semibold text-zinc-600 hover:text-zinc-900 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
                 {t.allFree}
               </button>
               <button
                 type="button"
                 onClick={() => handleQuickFill('busy')}
-                className="text-[11px] font-medium text-zinc-600 hover:text-zinc-900 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
+                className="text-[11px] font-semibold text-zinc-600 hover:text-zinc-900 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
                 {t.allBusy}
               </button>
@@ -318,16 +318,16 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="text-[11px] font-medium text-zinc-500 hover:text-zinc-800 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors flex items-center gap-1 cursor-pointer"
+                  className="text-[11px] font-semibold text-zinc-500 hover:text-zinc-800 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
                 >
                   <RotateCcw className="w-3 h-3" />
-                  {t.resetChanges}
+                  <span>{t.resetChanges}</span>
                 </button>
               )}
               <button
                 type="button"
                 onClick={handleSave}
-                className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer whitespace-nowrap shrink-0 ${
                   isDirty
                     ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                     : 'bg-zinc-900 text-white hover:bg-zinc-800'
@@ -489,7 +489,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                           </button>
                         </div>
                         <span className="text-[10px] font-bold uppercase tracking-wider opacity-90">
-                          {status === 'available' ? t.brushFree : status === 'maybe' ? t.brushMaybe : t.brushClear}
+                          {status === 'available' ? t.brushFree : status === 'maybe' ? t.brushMaybe : t.brushBusy}
                         </span>
                       </div>
                     );
