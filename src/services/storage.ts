@@ -43,12 +43,15 @@ export const StorageService = {
   saveEvent(data: EventDataPackage, pushToCloud: boolean = true): void {
     try {
       localStorage.setItem(`${STORAGE_PREFIX}event_${data.event.id}`, JSON.stringify(data));
-      const recent = this.getRecentEvents();
-      const updatedRecent = [
-        data.event.id,
-        ...recent.filter(id => id !== data.event.id),
-      ].slice(0, 10);
-      localStorage.setItem(`${STORAGE_PREFIX}recent_events`, JSON.stringify(updatedRecent));
+      // Only real user trips (never demo) are tracked in recent trips
+      if (!data.event.id.startsWith('demo-')) {
+        const recent = this.getRecentEvents();
+        const updatedRecent = [
+          data.event.id,
+          ...recent.filter(id => id !== data.event.id),
+        ].slice(0, 10);
+        localStorage.setItem(`${STORAGE_PREFIX}recent_events`, JSON.stringify(updatedRecent));
+      }
 
       if (pushToCloud) {
         // Full event initialization or admin update
@@ -109,10 +112,33 @@ export const StorageService = {
   getRecentEvents(): string[] {
     try {
       const raw = localStorage.getItem(`${STORAGE_PREFIX}recent_events`);
-      return raw ? JSON.parse(raw) : [];
+      const list: string[] = raw ? JSON.parse(raw) : [];
+      // Cleanly exclude any demo trips from historical localStorage
+      return list.filter(id => id && typeof id === 'string' && !id.startsWith('demo-'));
     } catch {
       return [];
     }
+  },
+
+  removeRecentEvent(eventId: string): void {
+    try {
+      const recent = this.getRecentEvents().filter(id => id !== eventId);
+      localStorage.setItem(`${STORAGE_PREFIX}recent_events`, JSON.stringify(recent));
+    } catch (e) {
+      console.error('Failed to remove recent event', e);
+    }
+  },
+
+  getRecentEventPackages(): EventDataPackage[] {
+    const ids = this.getRecentEvents();
+    const results: EventDataPackage[] = [];
+    for (const id of ids) {
+      const pkg = this.getEvent(id);
+      if (pkg && pkg.event && pkg.event.id && !pkg.event.id.startsWith('demo-')) {
+        results.push(pkg);
+      }
+    }
+    return results;
   },
 
   saveAdminKey(eventId: string, adminKey: string): void {

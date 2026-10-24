@@ -31,10 +31,11 @@ import { PinModal } from './components/PinModal';
 import { DayDetailsModal } from './components/DayDetailsModal';
 import { DayNoteModal } from './components/DayNoteModal';
 
-import { Palmtree, Sparkles, Plus, Calendar, Users, Compass, Eye } from 'lucide-react';
+import { Palmtree, Sparkles, Plus, Calendar, Users, Compass, Eye, X } from 'lucide-react';
 
 export default function App() {
   const [eventData, setEventData] = useState<EventDataPackage | null>(null);
+  const [recentTrips, setRecentTrips] = useState<EventDataPackage[]>([]);
   const [currentParticipant, setCurrentParticipant] = useState<Participant | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminKey, setAdminKey] = useState<string | null>(null);
@@ -116,17 +117,12 @@ export default function App() {
     }
   }, []);
 
-  // Initialize from URL or fallback
+  // Initialize from URL or keep clean home
   useEffect(() => {
+    setRecentTrips(StorageService.getRecentEventPackages());
     const { eventId, adminParam } = parseUrlParams();
     if (eventId) {
       loadEvent(eventId, adminParam);
-    } else {
-      const recent = StorageService.getRecentEvents();
-      if (recent.length > 0) {
-        window.history.replaceState(null, '', `?event=${recent[0]}`);
-        loadEvent(recent[0]);
-      }
     }
 
     // URL change listener
@@ -140,6 +136,7 @@ export default function App() {
         setSelectedWindow(null);
         setIsAdmin(false);
         setAdminKey(null);
+        setRecentTrips(StorageService.getRecentEventPackages());
       }
     };
 
@@ -187,6 +184,19 @@ export default function App() {
     setSelectedWindow(null);
     setIsAdmin(false);
     setAdminKey(null);
+    setRecentTrips(StorageService.getRecentEventPackages());
+  };
+
+  const handleOpenRecentTrip = (eventId: string) => {
+    const adminKey = StorageService.getAdminKey(eventId);
+    const targetUrl = adminKey ? `?event=${eventId}&admin=${adminKey}` : `?event=${eventId}`;
+    window.history.pushState(null, '', targetUrl);
+    loadEvent(eventId, adminKey);
+  };
+
+  const handleRemoveRecentTrip = (eventId: string) => {
+    StorageService.removeRecentEvent(eventId);
+    setRecentTrips(prev => prev.filter(pkg => pkg.event.id !== eventId));
   };
 
   const handleLoadDemo = async () => {
@@ -198,6 +208,7 @@ export default function App() {
   const handleTripCreated = (eventId: string, key: string) => {
     window.history.pushState(null, '', `?event=${eventId}&admin=${key}`);
     loadEvent(eventId, key);
+    setRecentTrips(StorageService.getRecentEventPackages());
   };
 
   const handleSaveAvailability = (
@@ -375,6 +386,63 @@ export default function App() {
                 <span>Try Live Demo</span>
               </button>
             </div>
+
+            {/* Recent Polls on this Device (if any real trips are stored) */}
+            {recentTrips.length > 0 && (
+              <div className="pt-2 text-left max-w-lg mx-auto w-full space-y-2.5">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
+                    Your Recent Polls on this Device
+                  </span>
+                  <span className="text-[10px] text-zinc-400">
+                    Saved in browser
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {recentTrips.map((pkg) => (
+                    <div
+                      key={pkg.event.id}
+                      className="flex items-center justify-between p-3.5 rounded-2xl bg-white border border-zinc-200/90 hover:border-emerald-500/60 transition-all shadow-xs group"
+                    >
+                      <div
+                        onClick={() => handleOpenRecentTrip(pkg.event.id)}
+                        className="flex-1 min-w-0 cursor-pointer pr-3"
+                      >
+                        <h4 className="text-sm font-bold text-zinc-950 group-hover:text-emerald-700 transition-colors truncate">
+                          {pkg.event.title}
+                        </h4>
+                        <div className="flex items-center gap-2 text-xs text-zinc-500 mt-0.5">
+                          <span>{formatWindowRange(pkg.event.startDate, pkg.event.endDate)}</span>
+                          <span>•</span>
+                          <span>{pkg.participants.length} {pkg.participants.length === 1 ? 'friend' : 'friends'}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenRecentTrip(pkg.event.id)}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-800 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer shadow-2xs"
+                        >
+                          Open Poll →
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveRecentTrip(pkg.event.id);
+                          }}
+                          className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          title="Remove from recent polls on this device"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Feature Highlights */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-10 text-left border-t border-zinc-200/60">
