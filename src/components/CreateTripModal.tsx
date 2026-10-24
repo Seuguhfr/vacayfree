@@ -4,6 +4,7 @@ import { TripEvent, Participant } from '../types';
 import { generateAdminKey, hashAdminKey, hashParticipantPin, generateRandomId } from '../utils/security';
 import { getParticipantColor } from '../utils/colors';
 import { StorageService } from '../services/storage';
+import { useTranslation } from '../i18n/LanguageContext';
 import { Calendar, Users, Clock, Sparkles } from 'lucide-react';
 
 interface CreateTripModalProps {
@@ -17,6 +18,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   onClose,
   onTripCreated,
 }) => {
+  const { t } = useTranslation();
   const currentYear = new Date().getFullYear();
   const defaultStart = `${currentYear}-07-01`;
   const defaultEnd = `${currentYear}-08-31`;
@@ -55,19 +57,19 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     setError(null);
 
     if (!title.trim()) {
-      setError('Please provide a trip title.');
+      setError(t.errorTitleRequired);
       return;
     }
     if (!startDate || !endDate) {
-      setError('Please select start and end dates.');
+      setError(t.errorDatesRequired);
       return;
     }
     if (startDate >= endDate) {
-      setError('End date must be after start date.');
+      setError(t.errorDateOrder);
       return;
     }
     if (durationDays < 1) {
-      setError('Duration must be at least 1 day.');
+      setError(t.errorDurationMin);
       return;
     }
 
@@ -119,14 +121,14 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       onClose();
     } catch (err) {
       console.error(err);
-      setError('Failed to create trip. Please try again.');
+      setError(t.errorGeneric);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Create a Vacation Poll" maxWidthClass="max-w-lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={t.createModalTitle} maxWidthClass="max-w-lg">
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && (
           <div className="p-3 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl">
@@ -137,14 +139,14 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
         {/* Trip Title */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1.5">
-            Trip Title *
+            {t.tripTitleLabel}
           </label>
           <input
             type="text"
             required
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g., Summer Trip in Portugal 🏖️"
+            placeholder={t.tripTitlePlaceholder}
             className="w-full px-3 py-2 rounded-xl border border-zinc-200 bg-white text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all text-xs font-medium"
           />
         </div>
@@ -152,13 +154,13 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
         {/* Description */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1.5">
-            Description or Destination Ideas (Optional)
+            {t.descriptionLabel}
           </label>
           <input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="e.g., Beach villa or mountain retreat, flexible on location"
+            placeholder={t.descriptionPlaceholder}
             className="w-full px-3 py-2 rounded-xl border border-zinc-200 bg-white text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all text-xs"
           />
         </div>
@@ -167,12 +169,12 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
         <div className="space-y-2">
           <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600 flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5 text-zinc-500" />
-            <span>Calendar Window *</span>
+            <span>{t.calendarWindowLabel}</span>
           </label>
 
           {/* Prominent Quick-Select Chips with Active State Highlight */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-semibold text-zinc-500">Quick presets:</span>
+            <span className="text-[11px] font-semibold text-zinc-500">{t.quickPresetsLabel}</span>
             <button
               type="button"
               onClick={() => handleQuickDates('summer')}
@@ -182,7 +184,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   : 'bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100'
               }`}
             >
-              ☀️ Summer (Jul & Aug)
+              {t.presetSummer}
             </button>
             <button
               type="button"
@@ -193,7 +195,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   : 'bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100'
               }`}
             >
-              Next Month
+              {t.presetNextMonth}
             </button>
             <button
               type="button"
@@ -204,13 +206,13 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   : 'bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100'
               }`}
             >
-              Autumn
+              {t.presetAutumn}
             </button>
           </div>
 
           <div className="grid grid-cols-2 gap-3 pt-1">
             <div>
-              <span className="text-[10px] text-zinc-500 mb-0.5 block">Earliest start</span>
+              <span className="text-[10px] text-zinc-500 mb-0.5 block">{t.earliestStartLabel}</span>
               <input
                 type="date"
                 required
@@ -223,7 +225,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
               />
             </div>
             <div>
-              <span className="text-[10px] text-zinc-500 mb-0.5 block">Latest return</span>
+              <span className="text-[10px] text-zinc-500 mb-0.5 block">{t.latestReturnLabel}</span>
               <input
                 type="date"
                 required
@@ -242,7 +244,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
         <div className="space-y-2">
           <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600 flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-zinc-500" />
-            <span>Target Trip Duration</span>
+            <span>{t.targetDurationLabel}</span>
           </label>
           <div className="grid grid-cols-4 gap-2">
             <button
@@ -257,7 +259,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'
               }`}
             >
-              Weekend (3d)
+              {t.durationWeekend}
             </button>
             <button
               type="button"
@@ -271,7 +273,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'
               }`}
             >
-              1 Week (7d)
+              {t.duration1Week}
             </button>
             <button
               type="button"
@@ -285,7 +287,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'
               }`}
             >
-              2 Weeks (14d)
+              {t.duration2Weeks}
             </button>
             <button
               type="button"
@@ -296,12 +298,12 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'
               }`}
             >
-              Custom
+              {t.durationCustom}
             </button>
           </div>
           {isCustomDuration && (
             <div className="mt-2 flex items-center gap-2 p-2 rounded-lg bg-zinc-50 border border-zinc-200">
-              <span className="text-xs text-zinc-600 font-medium">Custom duration:</span>
+              <span className="text-xs text-zinc-600 font-medium">{t.customLengthLabel}</span>
               <input
                 type="number"
                 min={1}
@@ -310,7 +312,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 onChange={(e) => setDurationDays(Math.max(1, parseInt(e.target.value, 10) || 1))}
                 className="w-16 px-2 py-1 rounded-md border border-zinc-300 text-xs font-bold text-center bg-white"
               />
-              <span className="text-xs text-zinc-500">days</span>
+              <span className="text-xs text-zinc-500">{t.daysUnit}</span>
             </div>
           )}
         </div>
@@ -319,7 +321,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
         <div className="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200/80 space-y-2.5">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700">
             <Users className="w-3.5 h-3.5 text-zinc-500" />
-            <span>Your Info (Organizer)</span>
+            <span>{t.yourInfoLabel}</span>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -328,7 +330,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 type="text"
                 value={creatorName}
                 onChange={(e) => setCreatorName(e.target.value)}
-                placeholder="Your Name (e.g. Alex)"
+                placeholder={t.yourNamePlaceholder}
                 className="w-full px-3 py-1.5 rounded-lg border border-zinc-200 bg-white text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
               />
             </div>
@@ -340,13 +342,13 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 pattern="[0-9]*"
                 value={creatorPin}
                 onChange={(e) => setCreatorPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                placeholder="4-digit PIN (e.g. 1234)"
+                placeholder={t.pinPlaceholder}
                 className="w-full px-3 py-1.5 rounded-lg border border-zinc-200 bg-white text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
               />
             </div>
           </div>
           <p className="text-[11px] text-zinc-500">
-            Choose a 4-digit PIN so you can edit your dates later from any device.
+            {t.pinHelpText}
           </p>
         </div>
 
@@ -357,7 +359,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
             onClick={onClose}
             className="px-4 py-2 rounded-xl text-xs font-medium text-zinc-600 hover:bg-zinc-100 transition-colors cursor-pointer"
           >
-            Cancel
+            {t.cancelBtn}
           </button>
           <button
             type="submit"
@@ -365,7 +367,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer shadow-sm shadow-emerald-600/20"
           >
             <Sparkles className="w-4 h-4" />
-            <span>{isSubmitting ? 'Creating...' : 'Create Trip Poll'}</span>
+            <span>{isSubmitting ? t.creatingBtn : t.createTripSubmitBtn}</span>
           </button>
         </div>
       </form>

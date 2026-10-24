@@ -3,6 +3,7 @@ import {
   format,
   eachDayOfInterval,
 } from 'date-fns';
+import { Locale } from 'date-fns/locale';
 import {
   Participant,
   ParticipantResponse,
@@ -18,24 +19,31 @@ export function getDatesInRange(startDateStr: string, endDateStr: string): Date[
   return eachDayOfInterval({ start, end });
 }
 
-export function formatDateSafe(date: Date | string, formatPattern: string): string {
+export function formatDateSafe(date: Date | string, formatPattern: string, locale?: Locale): string {
   const d = typeof date === 'string' ? parseISO(date) : date;
-  return format(d, formatPattern);
+  return format(d, formatPattern, { locale });
 }
 
-export function formatWindowRange(startDateStr: string, endDateStr: string): string {
+export function formatWindowRange(startDateStr: string, endDateStr: string, locale?: Locale): string {
   const start = parseISO(startDateStr);
   const end = parseISO(endDateStr);
 
   const sameYear = start.getFullYear() === end.getFullYear();
   const sameMonth = sameYear && start.getMonth() === end.getMonth();
+  const isFr = locale?.code?.startsWith('fr');
 
   if (sameMonth) {
-    return `${format(start, 'MMM d')} – ${format(end, 'd, yyyy')}`;
+    return isFr
+      ? `${format(start, 'd', { locale })} – ${format(end, 'd MMM yyyy', { locale })}`
+      : `${format(start, 'MMM d', { locale })} – ${format(end, 'd, yyyy', { locale })}`;
   } else if (sameYear) {
-    return `${format(start, 'MMM d')} – ${format(end, 'MMM d, yyyy')}`;
+    return isFr
+      ? `${format(start, 'd MMM', { locale })} – ${format(end, 'd MMM yyyy', { locale })}`
+      : `${format(start, 'MMM d', { locale })} – ${format(end, 'MMM d, yyyy', { locale })}`;
   } else {
-    return `${format(start, 'MMM d, yyyy')} – ${format(end, 'MMM d, yyyy')}`;
+    return isFr
+      ? `${format(start, 'd MMM yyyy', { locale })} – ${format(end, 'd MMM yyyy', { locale })}`
+      : `${format(start, 'MMM d, yyyy', { locale })} – ${format(end, 'MMM d, yyyy', { locale })}`;
   }
 }
 

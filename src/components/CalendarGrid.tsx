@@ -15,6 +15,7 @@ import {
   ParticipantResponse,
 } from '../types';
 import { isDateInWindow } from '../utils/dateCalc';
+import { useTranslation } from '../i18n/LanguageContext';
 import {
   MessageSquare,
   Sparkles,
@@ -40,7 +41,8 @@ interface CalendarGridProps {
   onOpenDayNote?: (dateStr: string, currentStatus: AvailabilityStatus, currentNote: string) => void;
 }
 
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const WEEKDAYS_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const WEEKDAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
 export const CalendarGrid: React.FC<CalendarGridProps> = ({
   startDateStr,
@@ -52,6 +54,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   onSaveAvailability,
   onSelectDayDetails,
 }) => {
+  const { t, dateLocale, language } = useTranslation();
+  const weekdays = language === 'fr' ? WEEKDAYS_FR : WEEKDAYS_EN;
+
   // View mode tab: 'paint' (personal painter) vs 'heatmap' (overall group calendar)
   const [viewTab, setViewTab] = useState<'paint' | 'heatmap'>(currentParticipant ? 'paint' : 'heatmap');
   const isPaintMode = !!currentParticipant && viewTab === 'paint';
@@ -201,7 +206,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                   }`}
                 >
                   <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>My Dates (Painter)</span>
+                  <span>{t.myDatesTab}</span>
                 </button>
                 <button
                   type="button"
@@ -218,7 +223,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                   }`}
                 >
                   <Users className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Group Heatmap</span>
+                  <span>{t.groupHeatmapTab}</span>
                 </button>
               </div>
 
@@ -226,7 +231,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
               {viewTab === 'paint' && (
                 <div className="flex items-center gap-1.5 pl-1 sm:pl-2 sm:border-l sm:border-zinc-200">
                   <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider hidden sm:inline">
-                    Brush:
+                    {t.brushLabel}
                   </span>
                   <button
                     type="button"
@@ -238,7 +243,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                     }`}
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Free</span>
+                    <span>{t.brushFree}</span>
                   </button>
                   <button
                     type="button"
@@ -250,7 +255,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                     }`}
                   >
                     <HelpCircle className="w-3.5 h-3.5" />
-                    <span>Maybe</span>
+                    <span>{t.brushMaybe}</span>
                   </button>
                   <button
                     type="button"
@@ -260,10 +265,10 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                         ? 'bg-zinc-800 text-white border-zinc-800 shadow-xs'
                         : 'bg-zinc-100 text-zinc-700 border-zinc-200 hover:bg-zinc-200'
                     }`}
-                    title="Clear dates back to busy"
+                    title={t.brushClear}
                   >
                     <XCircle className="w-3.5 h-3.5" />
-                    <span>Clear</span>
+                    <span>{t.brushClear}</span>
                   </button>
                 </div>
               )}
@@ -271,15 +276,15 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
           ) : (
             /* Viewer mode Heatmap legend */
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-zinc-800 text-xs">Heatmap:</span>
+              <span className="font-semibold text-zinc-800 text-xs">{t.heatmapLegend}</span>
               <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-sm bg-zinc-100 border border-zinc-200" title="0 friends free" />
-                <span className="text-[11px] text-zinc-500">None</span>
-                <span className="w-3 h-3 rounded-sm bg-emerald-100 border border-emerald-200" title="Few free" />
-                <span className="w-3 h-3 rounded-sm bg-emerald-300 border border-emerald-400" title="Most free" />
-                <span className="w-3 h-3 rounded-sm bg-emerald-500" title="Nearly all free" />
-                <span className="w-3 h-3 rounded-sm bg-emerald-600 ring-1 ring-emerald-400" title="100% all friends free!" />
-                <span className="text-[11px] font-bold text-emerald-800">All</span>
+                <span className="w-3 h-3 rounded-sm bg-zinc-100 border border-zinc-200" title={t.legendNone} />
+                <span className="text-[11px] text-zinc-500">{t.legendNone}</span>
+                <span className="w-3 h-3 rounded-sm bg-emerald-100 border border-emerald-200" />
+                <span className="w-3 h-3 rounded-sm bg-emerald-300 border border-emerald-400" />
+                <span className="w-3 h-3 rounded-sm bg-emerald-500" />
+                <span className="w-3 h-3 rounded-sm bg-emerald-600 ring-1 ring-emerald-400" title={t.legendAll} />
+                <span className="text-[11px] font-bold text-emerald-800">{t.legendAll}</span>
               </div>
             </div>
           )}
@@ -292,14 +297,14 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                 onClick={() => handleQuickFill('available')}
                 className="text-[11px] font-medium text-zinc-600 hover:text-zinc-900 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
               >
-                All Free
+                {t.allFree}
               </button>
               <button
                 type="button"
                 onClick={() => handleQuickFill('busy')}
                 className="text-[11px] font-medium text-zinc-600 hover:text-zinc-900 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
               >
-                All Busy
+                {t.allBusy}
               </button>
               {isDirty && (
                 <button
@@ -308,7 +313,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                   className="text-[11px] font-medium text-zinc-500 hover:text-zinc-800 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors flex items-center gap-1 cursor-pointer"
                 >
                   <RotateCcw className="w-3 h-3" />
-                  Reset
+                  {t.resetChanges}
                 </button>
               )}
               <button
@@ -321,23 +326,14 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                 }`}
               >
                 <Check className="w-3.5 h-3.5" />
-                <span>{isDirty ? 'Save Changes' : 'Saved'}</span>
+                <span>{isDirty ? t.saveChanges : t.savedToast}</span>
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-3 text-xs text-zinc-600">
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-sm bg-zinc-100 border border-zinc-200" />
-                <span className="text-[11px] text-zinc-500">0</span>
-                <span className="w-3 h-3 rounded-sm bg-emerald-100 border border-emerald-200" />
-                <span className="w-3 h-3 rounded-sm bg-emerald-300 border border-emerald-400" />
-                <span className="w-3 h-3 rounded-sm bg-emerald-600" />
-                <span className="text-[11px] font-bold text-emerald-800">All free</span>
-              </div>
-              <span className="text-zinc-300">|</span>
+            <div className="flex items-center gap-2 text-xs text-zinc-600">
               <p className="text-[11px] font-medium text-zinc-500 flex items-center gap-1">
                 <Info className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                <span>Click any day to see friend availability</span>
+                <span>{t.tapToEditHint}</span>
               </p>
             </div>
           )}
@@ -348,7 +344,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-50/90 border border-zinc-200/80 text-xs text-zinc-600 shadow-2xs">
             <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>
-              <strong>Painter:</strong> Click or drag across days to mark free. Click any active day again to toggle it off. Click the 💬 icon on any day to attach a note.
+              <strong>{t.brushLabel}</strong> {t.clickOrDragHint}. {t.tapToEditHint}.
             </span>
           </div>
         )}
@@ -358,7 +354,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-indigo-600 shrink-0" />
               <span>
-                <strong>Group Heatmap:</strong> Viewing combined availability of all friends. Click any day for details.
+                <strong>{t.groupHeatmapTab} :</strong> {t.windowsSubtitle}.
               </span>
             </div>
             <button
@@ -367,7 +363,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-indigo-700 hover:bg-indigo-100 border border-indigo-200 shadow-2xs cursor-pointer transition-colors shrink-0"
             >
               <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Edit My Dates</span>
+              <span>{t.myDatesTab}</span>
             </button>
           </div>
         )}
@@ -383,6 +379,8 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
           // Day of week offset for Monday start
           const startDayOfWeek = (getDay(monthStart) + 6) % 7;
           const leadingBlanks = Array.from({ length: startDayOfWeek });
+          const rawMonth = format(monthDate, 'MMMM yyyy', { locale: dateLocale });
+          const monthTitle = rawMonth.charAt(0).toUpperCase() + rawMonth.slice(1);
 
           return (
             <div
@@ -392,13 +390,13 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
               {/* Month Header */}
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-bold text-base text-zinc-900 tracking-tight">
-                  {format(monthDate, 'MMMM yyyy')}
+                  {monthTitle}
                 </h3>
               </div>
 
               {/* Weekday Row */}
               <div className="grid grid-cols-7 gap-1.5 mb-2 text-center">
-                {WEEKDAYS.map((wd) => (
+                {weekdays.map((wd) => (
                   <span
                     key={wd}
                     className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider"
@@ -477,13 +475,13 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                                   : 'text-amber-950 bg-amber-500/50 ring-1 ring-amber-900/30'
                                 : 'text-zinc-400 hover:text-zinc-800 hover:bg-zinc-200/60'
                             }`}
-                            title={hasNote ? `Note: ${myDay?.note}` : 'Click to add note'}
+                            title={hasNote ? `Note: ${myDay?.note}` : t.addNoteAction}
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
                           </button>
                         </div>
                         <span className="text-[10px] font-bold uppercase tracking-wider opacity-90">
-                          {status}
+                          {status === 'available' ? t.brushFree : status === 'maybe' ? t.brushMaybe : t.brushClear}
                         </span>
                       </div>
                     );

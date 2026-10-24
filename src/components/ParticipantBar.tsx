@@ -1,6 +1,7 @@
 import React from 'react';
 import { Participant, ParticipantResponse } from '../types';
 import { formatWindowRange } from '../utils/dateCalc';
+import { useTranslation } from '../i18n/LanguageContext';
 import { UserPlus, CheckCircle2, User, Lock, Unlock, LogOut } from 'lucide-react';
 
 interface ParticipantBarProps {
@@ -32,6 +33,7 @@ export const ParticipantBar: React.FC<ParticipantBarProps> = ({
   onSelectParticipant,
   onLogoutParticipant,
 }) => {
+  const { t, dateLocale } = useTranslation();
   const responseMap = new Map(responses.map(r => [r.participantId, r.availability]));
 
   return (
@@ -61,14 +63,14 @@ export const ParticipantBar: React.FC<ParticipantBarProps> = ({
                   {currentParticipant.name}
                 </span>
                 <span className="text-[10px] text-emerald-700 font-medium">
-                  Editing Mode
+                  {t.editingMode}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={onLogoutParticipant}
                 className="ml-2 p-1 rounded-lg text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100 transition-colors cursor-pointer"
-                title="Switch friend / Exit edit mode"
+                title={t.switchFriendTooltip}
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>
@@ -81,7 +83,7 @@ export const ParticipantBar: React.FC<ParticipantBarProps> = ({
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition-all cursor-pointer shadow-sm shadow-emerald-600/20"
               >
                 <UserPlus className="w-4 h-4 stroke-[2.5]" />
-                <span>+ Add Your Dates</span>
+                <span>{t.addYourDates}</span>
               </button>
             )
           )}
@@ -95,14 +97,14 @@ export const ParticipantBar: React.FC<ParticipantBarProps> = ({
             <User className="w-3.5 h-3.5" />
           </div>
           <span className="text-xs font-bold text-zinc-800">
-            Group Overview ({participants.length} {participants.length === 1 ? 'friend' : 'friends'} responded):
+            {t.groupOverview(participants.length)}
           </span>
         </div>
 
         {/* Clickable Participant Pills with distinct colored avatar dots */}
         <div className="flex flex-wrap items-center gap-1.5">
           {participants.length === 0 ? (
-            <span className="text-xs text-zinc-400 italic">No responses yet — be the first!</span>
+            <span className="text-xs text-zinc-400 italic">{t.noResponsesYet}</span>
           ) : (
             participants.map((p) => {
               const availMap = responseMap.get(p.id) || {};
@@ -119,14 +121,14 @@ export const ParticipantBar: React.FC<ParticipantBarProps> = ({
                       ? 'bg-zinc-900 text-white border-zinc-900 shadow-xs'
                       : 'bg-zinc-50 text-zinc-700 border-zinc-200/80 hover:bg-zinc-100 hover:border-zinc-300'
                   }`}
-                  title={isMe ? `Editing as ${p.name}` : `Click to unlock and edit ${p.name}'s dates`}
+                  title={isMe ? `${t.editingMode}: ${p.name}` : p.name}
                 >
                   <span className={`w-2.5 h-2.5 rounded-full ${p.color}`} />
                   <span className="font-semibold">{p.name}</span>
                   <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
                     isMe ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-200 text-zinc-600'
                   }`}>
-                    {availableCount}d free
+                    {t.daysFree(availableCount)}
                   </span>
                   {isMe && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
                 </button>
@@ -143,10 +145,10 @@ export const ParticipantBar: React.FC<ParticipantBarProps> = ({
             <div>
               <span className="font-bold">
                 {lockedWindow
-                  ? `Trip Finalized: ${formatWindowRange(lockedWindow.startDate, lockedWindow.endDate)}!`
-                  : 'This poll has been finalized and locked.'}
+                  ? t.tripFinalizedDates(formatWindowRange(lockedWindow.startDate, lockedWindow.endDate, dateLocale))
+                  : t.tripFinalizedBanner}
               </span>
-              <span className="text-amber-800 ml-1">New votes and edits are closed.</span>
+              <span className="text-amber-800 ml-1">{t.votingClosedDesc}</span>
             </div>
           </div>
           {isAdmin && onUnlock && (
@@ -156,7 +158,7 @@ export const ParticipantBar: React.FC<ParticipantBarProps> = ({
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-amber-950 border border-amber-300 hover:bg-amber-100 shadow-xs cursor-pointer self-start sm:self-center shrink-0 transition-colors"
             >
               <Unlock className="w-3.5 h-3.5 text-amber-700" />
-              <span>Unlock Poll</span>
+              <span>{t.unlockPollBtn}</span>
             </button>
           )}
         </div>

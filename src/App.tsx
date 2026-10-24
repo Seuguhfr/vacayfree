@@ -18,6 +18,7 @@ import {
   createDemoEvent,
   EventDataPackage,
 } from './services/storage';
+import { useTranslation } from './i18n/LanguageContext';
 
 import { Header } from './components/Header';
 import { ParticipantBar } from './components/ParticipantBar';
@@ -32,6 +33,7 @@ import { DayDetailsModal } from './components/DayDetailsModal';
 import { Palmtree, Sparkles, Plus, Calendar, Users, Compass, X, Unlock } from 'lucide-react';
 
 export default function App() {
+  const { t, dateLocale } = useTranslation();
   const [eventData, setEventData] = useState<EventDataPackage | null>(null);
   const [recentTrips, setRecentTrips] = useState<EventDataPackage[]>([]);
   const [currentParticipant, setCurrentParticipant] = useState<Participant | null>(null);
@@ -52,21 +54,18 @@ export default function App() {
   const parseUrlParams = useCallback(() => {
     // 1. Check search query params first (better for link previews & social shares)
     const searchParams = new URLSearchParams(window.location.search);
-    let eventId = searchParams.get('event');
-    let adminParam = searchParams.get('admin');
+    const hash = window.location.hash.replace(/^#/, '');
+    const hashParams = new URLSearchParams(hash);
 
-    // 2. Fallback to hash params
-    if (!eventId) {
-      const hash = window.location.hash.replace(/^#/, '');
-      const hashParams = new URLSearchParams(hash);
-      eventId = hashParams.get('event');
-      adminParam = hashParams.get('admin') || adminParam;
-    }
+    const eventId = searchParams.get('event') || hashParams.get('event');
+    const adminParam = searchParams.get('admin') || hashParams.get('admin');
+    const modalParam = searchParams.get('modal') || hashParams.get('modal');
+    const userParam = searchParams.get('user') || hashParams.get('user');
 
-    return { eventId, adminParam };
+    return { eventId, adminParam, modalParam, userParam };
   }, []);
 
-  const loadEvent = useCallback(async (eventId: string, adminParam?: string | null) => {
+  const loadEvent = useCallback(async (eventId: string, adminParam?: string | null, userParam?: string | null) => {
     let data: EventDataPackage | null = null;
     if (eventId === 'demo-summer-trip') {
       data = StorageService.getEvent(eventId) || (await createDemoEvent());
@@ -100,10 +99,13 @@ export default function App() {
         }
       }
 
-      // Check active participant session
+      // Check active participant session or user param
       const session = StorageService.getParticipantSession(eventId);
-      if (session) {
-        const matched = data.participants.find(p => p.id === session.participantId);
+      const targetUserId = userParam || session?.participantId;
+      if (targetUserId) {
+        const matched = data.participants.find(
+          p => p.id === targetUserId || p.name.toLowerCase() === targetUserId.toLowerCase()
+        );
         if (matched) {
           setCurrentParticipant(matched);
         }
@@ -114,16 +116,21 @@ export default function App() {
   // Initialize from URL or keep clean home
   useEffect(() => {
     setRecentTrips(StorageService.getRecentEventPackages());
-    const { eventId, adminParam } = parseUrlParams();
+    const { eventId, adminParam, modalParam, userParam } = parseUrlParams();
     if (eventId) {
-      loadEvent(eventId, adminParam);
+      loadEvent(eventId, adminParam, userParam);
     }
+
+    if (modalParam === 'create') setIsCreateOpen(true);
+    else if (modalParam === 'share') setIsShareOpen(true);
+    else if (modalParam === 'admin') setIsAdminOpen(true);
+    else if (modalParam === 'join' || modalParam === 'pin') setIsPinOpen(true);
 
     // URL change listener
     const handleUrlChange = () => {
-      const { eventId: newId, adminParam: newAdmin } = parseUrlParams();
+      const { eventId: newId, adminParam: newAdmin, modalParam: newModal, userParam: newUser } = parseUrlParams();
       if (newId) {
-        loadEvent(newId, newAdmin);
+        loadEvent(newId, newAdmin, newUser);
       } else {
         setEventData(null);
         setCurrentParticipant(null);
@@ -132,6 +139,10 @@ export default function App() {
         setAdminKey(null);
         setRecentTrips(StorageService.getRecentEventPackages());
       }
+      if (newModal === 'create') setIsCreateOpen(true);
+      else if (newModal === 'share') setIsShareOpen(true);
+      else if (newModal === 'admin') setIsAdminOpen(true);
+      else if (newModal === 'join' || newModal === 'pin') setIsPinOpen(true);
     };
 
     window.addEventListener('hashchange', handleUrlChange);
@@ -417,10 +428,10 @@ export default function App() {
 
             <div className="space-y-3">
               <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-zinc-950">
-                Plan holidays together without the headache.
+                {t.heroTitle}
               </h1>
               <p className="text-base sm:text-lg text-zinc-600 max-w-lg mx-auto leading-relaxed">
-                Create a trip poll, share the link with friends, paint your free vacation days, and instantly discover the best continuous dates for everyone.
+                {t.heroSubtitle}
               </p>
             </div>
 
@@ -432,7 +443,7 @@ export default function App() {
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] transition-all cursor-pointer shadow-md shadow-emerald-600/20"
               >
                 <Plus className="w-4 h-4 stroke-[2.5]" />
-                <span>Create a Vacation Poll</span>
+                <span>{t.createPollBtn}</span>
               </button>
 
               <button
@@ -441,7 +452,7 @@ export default function App() {
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl text-sm font-semibold bg-white text-zinc-800 border border-zinc-200/90 hover:bg-zinc-100/80 active:scale-[0.98] transition-all cursor-pointer shadow-xs"
               >
                 <Sparkles className="w-4 h-4 text-emerald-600" />
-                <span>Try Live Demo</span>
+                <span>{t.tryDemoBtn}</span>
               </button>
             </div>
 
@@ -450,10 +461,10 @@ export default function App() {
               <div className="pt-2 text-left max-w-lg mx-auto w-full space-y-2.5">
                 <div className="flex items-center justify-between px-1">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
-                    Your Recent Polls on this Device
+                    {t.recentPollsTitle}
                   </span>
                   <span className="text-[10px] text-zinc-400">
-                    Saved in browser
+                    {t.savedInBrowser}
                   </span>
                 </div>
                 <div className="space-y-2">
@@ -470,9 +481,9 @@ export default function App() {
                           {pkg.event.title}
                         </h4>
                         <div className="flex items-center gap-2 text-xs text-zinc-500 mt-0.5">
-                          <span>{formatWindowRange(pkg.event.startDate, pkg.event.endDate)}</span>
+                          <span>{formatWindowRange(pkg.event.startDate, pkg.event.endDate, dateLocale)}</span>
                           <span>•</span>
-                          <span>{pkg.participants.length} {pkg.participants.length === 1 ? 'friend' : 'friends'}</span>
+                          <span>{t.friendsCount(pkg.participants.length)}</span>
                         </div>
                       </div>
 
@@ -482,7 +493,7 @@ export default function App() {
                           onClick={() => handleOpenRecentTrip(pkg.event.id)}
                           className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-800 hover:bg-emerald-600 hover:text-white transition-all cursor-pointer shadow-2xs"
                         >
-                          Open Poll →
+                          {t.openPollBtn}
                         </button>
                         <button
                           type="button"
@@ -491,7 +502,7 @@ export default function App() {
                             handleRemoveRecentTrip(pkg.event.id);
                           }}
                           className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                          title="Remove from recent polls on this device"
+                          title={t.removeRecentTooltip}
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -506,25 +517,25 @@ export default function App() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-10 text-left border-t border-zinc-200/60">
               <div className="p-4 rounded-2xl bg-white border border-zinc-200/80 shadow-xs">
                 <Users className="w-5 h-5 text-emerald-600 mb-2" />
-                <h3 className="font-bold text-sm text-zinc-900">Zero Accounts</h3>
+                <h3 className="font-bold text-sm text-zinc-900">{t.featureZeroAccountsTitle}</h3>
                 <p className="text-xs text-zinc-500 mt-1">
-                  Friends join via link with a simple 4-digit PIN. No email or passwords required.
+                  {t.featureZeroAccountsDesc}
                 </p>
               </div>
 
               <div className="p-4 rounded-2xl bg-white border border-zinc-200/80 shadow-xs">
                 <Calendar className="w-5 h-5 text-indigo-600 mb-2" />
-                <h3 className="font-bold text-sm text-zinc-900">Touch Calendar Painter</h3>
+                <h3 className="font-bold text-sm text-zinc-900">{t.featurePainterTitle}</h3>
                 <p className="text-xs text-zinc-500 mt-1">
-                  Tap or drag across days to quickly paint free vs busy dates on mobile or desktop.
+                  {t.featurePainterDesc}
                 </p>
               </div>
 
               <div className="p-4 rounded-2xl bg-white border border-zinc-200/80 shadow-xs">
                 <Compass className="w-5 h-5 text-amber-600 mb-2" />
-                <h3 className="font-bold text-sm text-zinc-900">Smart Window Finder</h3>
+                <h3 className="font-bold text-sm text-zinc-900">{t.featureFinderTitle}</h3>
                 <p className="text-xs text-zinc-500 mt-1">
-                  Automatically ranks continuous 3-day, 7-day, or 14-day stretches by highest friend overlap.
+                  {t.featureFinderDesc}
                 </p>
               </div>
             </div>
@@ -588,15 +599,15 @@ export default function App() {
                   </div>
                   <div className="space-y-1">
                     <h3 className="text-xl font-extrabold text-zinc-950">
-                      Trip Dates Finalized! 🎉
+                      {t.tripDatesFinalizedTitle}
                     </h3>
                     <p className="text-base font-bold text-emerald-900">
                       {eventData.event.lockedWindow
-                        ? formatWindowRange(eventData.event.lockedWindow.startDate, eventData.event.lockedWindow.endDate)
+                        ? formatWindowRange(eventData.event.lockedWindow.startDate, eventData.event.lockedWindow.endDate, dateLocale)
                         : `${eventData.event.startDate} – ${eventData.event.endDate}`}
                     </p>
                     <p className="text-xs text-zinc-600 max-w-md mx-auto">
-                      The organizer has locked this trip poll. Availability voting and edits are now closed.
+                      {t.tripDatesFinalizedDesc}
                     </p>
                   </div>
                   {isAdmin && (
@@ -607,7 +618,7 @@ export default function App() {
                         className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-white text-zinc-800 border border-zinc-300 hover:bg-zinc-100 shadow-xs cursor-pointer transition-colors"
                       >
                         <Unlock className="w-3.5 h-3.5 text-zinc-600" />
-                        <span>Unlock Poll to Change Dates</span>
+                        <span>{t.unlockPollBtn}</span>
                       </button>
                     </div>
                   )}

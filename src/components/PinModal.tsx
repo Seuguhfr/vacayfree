@@ -4,6 +4,7 @@ import { Participant } from '../types';
 import { hashParticipantPin, generateRandomId } from '../utils/security';
 import { getParticipantColor } from '../utils/colors';
 import { StorageService } from '../services/storage';
+import { useTranslation } from '../i18n/LanguageContext';
 import { KeyRound, UserPlus, Lock } from 'lucide-react';
 
 interface PinModalProps {
@@ -23,6 +24,7 @@ export const PinModal: React.FC<PinModalProps> = ({
   onSelectParticipant,
   targetParticipant = null,
 }) => {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<'create' | 'login'>(targetParticipant ? 'login' : 'create');
   const [selectedId, setSelectedId] = useState<string>(targetParticipant?.id || participants[0]?.id || '');
   const [name, setName] = useState('');
@@ -42,7 +44,7 @@ export const PinModal: React.FC<PinModalProps> = ({
     setError(null);
 
     if (pin.trim().length < 4) {
-      setError('Please enter your 4-digit PIN.');
+      setError(t.errorPinDigits);
       return;
     }
 
@@ -50,7 +52,7 @@ export const PinModal: React.FC<PinModalProps> = ({
     try {
       if (mode === 'create') {
         if (!name.trim()) {
-          setError('Please enter your name.');
+          setError(t.errorNameRequired);
           setIsSubmitting(false);
           return;
         }
@@ -63,7 +65,7 @@ export const PinModal: React.FC<PinModalProps> = ({
           // Switch to login tab seamlessly for them!
           setSelectedId(existing.id);
           setMode('login');
-          setError(`"${existing.name}" is already on this trip! Enter your 4-digit PIN below to unlock your dates.`);
+          setError(t.errorNameCollision(existing.name));
           setIsSubmitting(false);
           return;
         }
@@ -87,7 +89,7 @@ export const PinModal: React.FC<PinModalProps> = ({
         // Login mode
         const p = participants.find(part => part.id === selectedId);
         if (!p) {
-          setError('Participant not found.');
+          setError(t.errorParticipantNotFound);
           setIsSubmitting(false);
           return;
         }
@@ -100,7 +102,7 @@ export const PinModal: React.FC<PinModalProps> = ({
         );
 
         if (!isValid) {
-          setError('Incorrect PIN. If you forgot your PIN, ask the trip organizer to click "Reset PIN" for you.');
+          setError(t.errorIncorrectPin);
           setIsSubmitting(false);
           return;
         }
@@ -112,7 +114,7 @@ export const PinModal: React.FC<PinModalProps> = ({
       }
     } catch (err) {
       console.error(err);
-      setError('An error occurred. Please try again.');
+      setError(t.errorGeneric);
     } finally {
       setIsSubmitting(false);
     }
@@ -122,7 +124,7 @@ export const PinModal: React.FC<PinModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={mode === 'create' ? 'Add Your Availability' : 'Edit Your Dates'}
+      title={mode === 'create' ? t.pinModalTitleNew : t.pinModalTitleUnlock}
       maxWidthClass="max-w-sm"
     >
       {/* Switch between New and Returning */}
@@ -137,7 +139,7 @@ export const PinModal: React.FC<PinModalProps> = ({
                 : 'text-zinc-600 hover:text-zinc-900'
             }`}
           >
-            I'm New
+            {t.tabNewFriend}
           </button>
           <button
             type="button"
@@ -148,7 +150,7 @@ export const PinModal: React.FC<PinModalProps> = ({
                 : 'text-zinc-600 hover:text-zinc-900'
             }`}
           >
-            I'm on the list
+            {t.tabReturningFriend}
           </button>
         </div>
       )}
@@ -163,7 +165,7 @@ export const PinModal: React.FC<PinModalProps> = ({
         {mode === 'create' ? (
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">
-              Your Name
+              {t.nameLabel}
             </label>
             <input
               type="text"
@@ -171,14 +173,14 @@ export const PinModal: React.FC<PinModalProps> = ({
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Alex, Sam, Taylor"
+              placeholder={t.namePlaceholder}
               className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
             />
           </div>
         ) : (
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">
-              Select Your Name
+              {t.tabReturningFriend}
             </label>
             <select
               value={selectedId}
@@ -197,7 +199,7 @@ export const PinModal: React.FC<PinModalProps> = ({
         {/* Clean, consistent left-aligned PIN input */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1 flex items-center justify-between">
-            <span>{mode === 'create' ? 'Set a 4-Digit PIN' : 'Enter 4-Digit PIN'}</span>
+            <span>{mode === 'create' ? t.choose4DigitPinLabel : t.enterYourPinLabel}</span>
             <Lock className="w-3.5 h-3.5 text-zinc-400" />
           </label>
           <input
@@ -206,13 +208,11 @@ export const PinModal: React.FC<PinModalProps> = ({
             maxLength={8}
             value={pin}
             onChange={(e) => setPin(e.target.value)}
-            placeholder="4-digit PIN (e.g. 1234)"
+            placeholder={t.pinPlaceholder}
             className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-left focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
           />
           <p className="text-[11px] text-zinc-500 mt-1">
-            {mode === 'create'
-              ? 'Protects your choices so only you can edit them later.'
-              : 'Enter the PIN you chose when first adding your dates.'}
+            {t.pinSubtext}
           </p>
         </div>
 
@@ -225,12 +225,12 @@ export const PinModal: React.FC<PinModalProps> = ({
             {mode === 'create' ? (
               <>
                 <UserPlus className="w-4 h-4" />
-                <span>Join & Pick Dates</span>
+                <span>{t.continueBtn}</span>
               </>
             ) : (
               <>
                 <KeyRound className="w-4 h-4" />
-                <span>Unlock & Edit Dates</span>
+                <span>{t.continueBtn}</span>
               </>
             )}
           </button>

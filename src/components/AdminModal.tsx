@@ -3,6 +3,7 @@ import { Modal } from './ui/Modal';
 import { TripEvent, Participant } from '../types';
 import { hashParticipantPin } from '../utils/security';
 import { StorageService } from '../services/storage';
+import { useTranslation } from '../i18n/LanguageContext';
 import { ShieldCheck, Lock, Unlock, Trash2, KeyRound, Copy, Check } from 'lucide-react';
 
 interface AdminModalProps {
@@ -30,6 +31,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   onDeleteParticipant,
   onDeletePoll,
 }) => {
+  const { t } = useTranslation();
   const [inputKey, setInputKey] = useState('');
   const [keyError, setKeyError] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -55,7 +57,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     const valid = await onVerifyAdmin(inputKey.trim());
     setIsVerifying(false);
     if (!valid) {
-      setKeyError('Invalid organizer key.');
+      setKeyError(t.invalidAdminKeyError);
     }
   };
 
@@ -100,13 +102,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isAdmin ? 'Organizer Controls' : 'Unlock Organizer Controls'}
+      title={isAdmin ? t.adminModalTitle : t.adminKeyRequiredTitle}
       maxWidthClass="max-w-lg"
     >
       {!isAdmin ? (
         <form onSubmit={handleVerify} className="space-y-4">
           <p className="text-xs text-zinc-600">
-            Enter your secret organizer admin key to unlock settings and manage responses.
+            {t.adminLinkSaveWarning}
           </p>
           {keyError && (
             <div className="p-2.5 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg">
@@ -115,7 +117,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           )}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">
-              Admin Key
+              {t.enterAdminKeyLabel}
             </label>
             <div className="flex items-center gap-2">
               <input
@@ -123,7 +125,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 required
                 value={inputKey}
                 onChange={(e) => setInputKey(e.target.value)}
-                placeholder="Paste your organizer key"
+                placeholder={t.adminKeyPlaceholder}
                 className="flex-1 px-3 py-2 rounded-xl border border-zinc-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
               />
               <button
@@ -131,7 +133,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 disabled={isVerifying}
                 className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 cursor-pointer"
               >
-                {isVerifying ? 'Checking...' : 'Unlock'}
+                {isVerifying ? t.verifyingBtn : t.verifyAndUnlockBtn}
               </button>
             </div>
           </div>
@@ -144,12 +146,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold flex items-center gap-1.5 text-amber-900">
                   <ShieldCheck className="w-4 h-4 text-amber-700" />
-                  Your Secret Organizer Link
+                  {t.adminAccessGranted}
                 </span>
                 <span className="text-[10px] text-amber-700 font-mono">Private</span>
               </div>
               <p className="text-[11px] text-amber-800 leading-tight">
-                Bookmark this link to maintain admin access. Do not share this in the group chat!
+                {t.adminLinkSaveWarning}
               </p>
               <div className="flex items-center gap-2 pt-1">
                 <input
@@ -168,7 +170,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-700 text-white hover:bg-amber-800 cursor-pointer"
                 >
                   {copiedAdminUrl ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedAdminUrl ? 'Copied' : 'Copy'}</span>
+                  <span>{copiedAdminUrl ? t.copiedBtn : t.copyBtn}</span>
                 </button>
               </div>
             </div>
@@ -179,20 +181,19 @@ export const AdminModal: React.FC<AdminModalProps> = ({
             <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 flex items-center justify-between">
               <div>
                 <span className="text-xs font-bold block">
-                  PIN for {pinResetNotice.name} reset to: <span className="font-mono text-sm underline">{pinResetNotice.tempPin}</span>
+                  {t.tempPinGenerated(pinResetNotice.name, pinResetNotice.tempPin)}
                 </span>
-                <span className="text-[11px] text-emerald-700">Text this 4-digit code to your friend.</span>
               </div>
               <button
                 type="button"
                 onClick={() => {
                   navigator.clipboard.writeText(pinResetNotice.tempPin);
-                  alert(`Copied PIN "${pinResetNotice.tempPin}" to clipboard!`);
+                  alert(t.copiedBtn);
                   setPinResetNotice(null);
                 }}
                 className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700"
               >
-                Copy PIN
+                {t.copyBtn}
               </button>
             </div>
           )}
@@ -201,7 +202,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           <form onSubmit={handleSaveChanges} className="space-y-3.5">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">
-                Trip Title
+                {t.tripTitleLabel}
               </label>
               <input
                 type="text"
@@ -213,7 +214,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">
-                Description
+                {t.descriptionLabel}
               </label>
               <input
                 type="text"
@@ -226,7 +227,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-medium text-zinc-500 mb-0.5">
-                  Start Date
+                  {t.earliestStartLabel}
                 </label>
                 <input
                   type="date"
@@ -237,7 +238,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               </div>
               <div>
                 <label className="block text-[11px] font-medium text-zinc-500 mb-0.5">
-                  End Date
+                  {t.latestReturnLabel}
                 </label>
                 <input
                   type="date"
@@ -253,11 +254,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               <div>
                 <div className="text-xs font-semibold text-zinc-800 flex items-center gap-1.5">
                   {isLocked ? <Lock className="w-3.5 h-3.5 text-rose-600" /> : <Unlock className="w-3.5 h-3.5 text-emerald-600" />}
-                  <span>{isLocked ? 'Poll is Locked' : 'Poll is Open for responses'}</span>
+                  <span>{isLocked ? t.pollLockedStatus : t.pollOpenStatus}</span>
                 </div>
-                <p className="text-[11px] text-zinc-500">
-                  {isLocked ? 'Friends cannot edit their dates while locked.' : 'Friends can freely mark and update dates.'}
-                </p>
               </div>
               <button
                 type="button"
@@ -268,19 +266,19 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
                 }`}
               >
-                {isLocked ? 'Unlock Poll' : 'Lock Poll'}
+                {isLocked ? t.unlockPollAdminBtn : t.lockPollBtn}
               </button>
             </div>
 
             <div className="flex items-center justify-between pt-1">
               <span className="text-xs text-emerald-600 font-semibold">
-                {saveSuccess ? '✓ Settings updated!' : ''}
+                {saveSuccess ? `✓ ${t.savedSuccessToast}` : ''}
               </span>
               <button
                 type="submit"
                 className="px-4 py-2 rounded-xl text-xs font-semibold bg-zinc-900 text-white hover:bg-zinc-800 transition-colors cursor-pointer"
               >
-                Save Settings
+                {t.saveChangesBtn}
               </button>
             </div>
           </form>
@@ -289,13 +287,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           <div className="pt-3 border-t border-zinc-100">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-600">
-                Manage Participants ({participants.length})
+                {t.manageParticipantsTitle} ({participants.length})
               </h3>
-              <span className="text-[10px] text-zinc-400">Scrollable list</span>
             </div>
             <div className="divide-y divide-zinc-100 max-h-56 overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-inner">
               {participants.length === 0 ? (
-                <p className="p-3 text-xs text-zinc-400 text-center">No participants yet</p>
+                <p className="p-3 text-xs text-zinc-400 text-center">{t.noResponsesYet}</p>
               ) : (
                 participants.map((p) => (
                   <div key={p.id} className="flex items-center justify-between p-2.5 hover:bg-zinc-50/50">
@@ -311,16 +308,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         className="px-2 py-1 rounded-md text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors text-[11px] flex items-center gap-1 border border-zinc-200 cursor-pointer"
                       >
                         <KeyRound className="w-3 h-3" />
-                        <span>Reset PIN</span>
+                        <span>{t.resetPinBtn}</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => {
-                          if (confirm(`Remove ${p.name} and their responses?`)) {
+                          if (confirm(`Remove ${p.name}?`)) {
                             onDeleteParticipant(p.id);
                           }
                         }}
-                        title="Delete participant"
+                        title={t.removeFriendBtn}
                         className="p-1 rounded-md text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -339,22 +336,22 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 <div>
                   <div className="text-xs font-bold text-rose-900 flex items-center gap-1.5">
                     <Trash2 className="w-4 h-4 text-rose-600" />
-                    <span>Delete Vacation Poll</span>
+                    <span>{t.dangerZoneTitle}</span>
                   </div>
                   <p className="text-[11px] text-rose-700 mt-0.5 leading-tight">
-                    Permanently delete this poll and all responses from cloud and storage.
+                    {t.deletePollConfirm}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => {
-                    if (window.confirm(`Are you sure you want to permanently delete "${event.title}"? This cannot be undone.`)) {
+                    if (window.confirm(t.deletePollConfirm)) {
                       onDeletePoll();
                     }
                   }}
                   className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-colors cursor-pointer shrink-0"
                 >
-                  Delete Poll
+                  {t.deletePollBtn}
                 </button>
               </div>
             </div>

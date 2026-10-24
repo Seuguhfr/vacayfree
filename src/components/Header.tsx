@@ -1,6 +1,8 @@
 import React from 'react';
 import { Palmtree, Share2, Settings, Plus, Lock, ArrowLeft } from 'lucide-react';
 import { TripEvent } from '../types';
+import { useTranslation } from '../i18n/LanguageContext';
+import { LanguageSelector } from './LanguageSelector';
 
 interface HeaderProps {
   event: TripEvent | null;
@@ -21,6 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
   onLoadDemo,
   onGoHome,
 }) => {
+  const { t } = useTranslation();
   const isDemo = event?.id === 'demo-summer-trip';
 
   return (
@@ -32,7 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={onGoHome}
             className="flex items-center gap-2.5 text-left group cursor-pointer focus:outline-none"
-            title="Go to VacayFree Home"
+            title={t.home}
           >
             <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm shadow-emerald-600/20 group-hover:bg-emerald-700 transition-colors">
               <Palmtree className="w-5 h-5 stroke-[2.2]" />
@@ -40,10 +43,10 @@ export const Header: React.FC<HeaderProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-base sm:text-lg tracking-tight text-zinc-900 leading-none group-hover:text-emerald-700 transition-colors">
-                  VacayFree
+                  {t.appName}
                 </span>
-                <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/60">
-                  Vacation Poll
+                <span className="hidden sm:inline-block text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+                  {t.vacationPoll}
                 </span>
               </div>
               {event && (
@@ -57,6 +60,9 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Actions */}
         <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Language Selector */}
+          <LanguageSelector />
+
           {event ? (
             <>
               {/* Return to Home button */}
@@ -64,10 +70,10 @@ export const Header: React.FC<HeaderProps> = ({
                 type="button"
                 onClick={onGoHome}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer"
-                title="Return to home page"
+                title={t.home}
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">Home</span>
+                <span className="hidden sm:inline">{t.home}</span>
               </button>
 
               <button
@@ -76,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold bg-zinc-900 text-white hover:bg-zinc-800 active:scale-[0.98] transition-all cursor-pointer shadow-xs"
               >
                 <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.2]" />
-                <span>Share</span>
+                <span>{t.share}</span>
               </button>
 
               <button
@@ -87,17 +93,17 @@ export const Header: React.FC<HeaderProps> = ({
                     ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
                     : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'
                 }`}
-                title={isAdmin ? 'Admin controls unlocked' : 'Organizer settings'}
+                title={isAdmin ? t.organizerUnlocked : t.organizer}
               >
                 {isAdmin ? (
                   <>
                     <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-700" />
-                    <span className="hidden sm:inline font-semibold">Organizer</span>
+                    <span className="hidden sm:inline font-semibold">{t.organizer}</span>
                   </>
                 ) : (
                   <>
                     <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-400" />
-                    <span className="hidden sm:inline">Organizer</span>
+                    <span className="hidden sm:inline">{t.organizer}</span>
                   </>
                 )}
               </button>
@@ -108,7 +114,7 @@ export const Header: React.FC<HeaderProps> = ({
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium bg-zinc-100 text-zinc-800 hover:bg-zinc-200/80 transition-all cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span className="hidden md:inline">New Poll</span>
+                <span className="hidden md:inline">{t.newPoll}</span>
               </button>
             </>
           ) : (
@@ -118,7 +124,7 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={onLoadDemo}
               className="text-xs sm:text-sm font-semibold text-zinc-600 hover:text-emerald-700 px-3 py-1.5 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
             >
-              Try Live Demo →
+              {t.tryLiveDemo}
             </button>
           )}
         </div>
@@ -127,13 +133,13 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Demo notification banner if in demo */}
       {isDemo && (
         <div className="bg-amber-50/90 border-t border-amber-200/70 px-4 py-1.5 text-center text-xs text-amber-900 flex items-center justify-center gap-2">
-          <span>✨ Viewing <strong>Live Demo</strong> with sample responses.</span>
+          <span>{t.demoBannerText}</span>
           <button
             type="button"
             onClick={onOpenNewTrip}
             className="underline font-semibold hover:text-amber-950 ml-1 cursor-pointer"
           >
-            Create your own trip
+            {t.demoBannerCreate}
           </button>
           <span className="text-amber-300">•</span>
           <button
@@ -141,7 +147,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onGoHome}
             className="underline hover:text-amber-950 cursor-pointer"
           >
-            Back to Home
+            {t.demoBannerHome}
           </button>
         </div>
       )}

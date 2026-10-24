@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { TripWindow, Participant } from '../types';
 import { formatWindowRange } from '../utils/dateCalc';
+import { useTranslation } from '../i18n/LanguageContext';
 import confetti from 'canvas-confetti';
 import {
   Trophy,
@@ -35,6 +36,7 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
   isAdmin,
   onFinalizeDate,
 }) => {
+  const { t, dateLocale } = useTranslation();
   const [showAll, setShowAll] = useState(false);
   const [isCustom, setIsCustom] = useState(![3, 7, 14].includes(targetDuration));
   const [customDays, setCustomDays] = useState(targetDuration || 5);
@@ -88,19 +90,19 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
               <Trophy className="w-4 h-4 stroke-[2.2]" />
             </div>
             <h2 className="text-base sm:text-lg font-bold text-zinc-900 tracking-tight">
-              Best Vacation Windows
+              {t.bestWindowsTitle}
             </h2>
             {fullAttendanceCount > 0 ? (
               <span className="text-[11px] text-emerald-800 font-bold bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-amber-500" />
-                {fullAttendanceCount} 100% Free
+                {t.allFreeBadge(fullAttendanceCount)}
               </span>
             ) : (
-              <span className="text-[11px] text-zinc-400 font-medium">{windows.length} options</span>
+              <span className="text-[11px] text-zinc-400 font-medium">{t.optionsCount(windows.length)}</span>
             )}
           </div>
           <p className="text-xs text-zinc-500 mt-0.5">
-            Continuous date stretches ranked by friend attendance
+            {t.windowsSubtitle}
           </p>
         </div>
 
@@ -115,7 +117,7 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
                 : 'bg-zinc-50 text-zinc-700 border-zinc-200/70 hover:bg-zinc-100'
             }`}
           >
-            Weekend (3d)
+            {t.durationWeekend}
           </button>
 
           <button
@@ -127,7 +129,7 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
                 : 'bg-zinc-50 text-zinc-700 border-zinc-200/70 hover:bg-zinc-100'
             }`}
           >
-            1 Week (7d)
+            {t.duration1Week}
           </button>
 
           <button
@@ -139,7 +141,7 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
                 : 'bg-zinc-50 text-zinc-700 border-zinc-200/70 hover:bg-zinc-100'
             }`}
           >
-            2 Weeks (14d)
+            {t.duration2Weeks}
           </button>
 
           <button
@@ -155,7 +157,7 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
             }`}
           >
             <Sliders className="w-3 h-3" />
-            <span>Custom{isCustom ? ` (${targetDuration}d)` : ''}</span>
+            <span>{isCustom ? `${t.durationCustom} (${targetDuration}d)` : t.durationCustom}</span>
           </button>
         </div>
       </div>
@@ -164,7 +166,7 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
       {isCustom && (
         <div className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-50 border border-zinc-200/80">
           <span className="text-xs font-semibold text-zinc-700">
-            Set custom length:
+            {t.customLengthLabel}
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -183,7 +185,7 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
                 onChange={handleCustomChange}
                 className="w-8 text-center font-bold text-xs text-zinc-900 focus:outline-none"
               />
-              <span className="text-[11px] text-zinc-500 font-medium">days</span>
+              <span className="text-[11px] text-zinc-500 font-medium">{t.daysUnit}</span>
             </div>
             <button
               type="button"
@@ -200,8 +202,8 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
       {windows.length === 0 ? (
         <div className="text-center py-8 text-zinc-400 text-xs space-y-1">
           <CalendarCheck2 className="w-8 h-8 mx-auto text-zinc-300 stroke-[1.5]" />
-          <p className="font-semibold text-zinc-600 text-sm">No windows found for {targetDuration} days.</p>
-          <p>Try reducing the trip duration.</p>
+          <p className="font-semibold text-zinc-600 text-sm">{t.noWindowsFoundTitle(targetDuration)}</p>
+          <p>{t.noWindowsFoundDesc}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -235,10 +237,10 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
                         </span>
                         <div className="min-w-0">
                           <h4 className="text-sm font-bold text-zinc-950 tracking-tight leading-snug">
-                            {formatWindowRange(win.startDate, win.endDate)}
+                            {formatWindowRange(win.startDate, win.endDate, dateLocale)}
                           </h4>
                           <span className="text-[11px] font-semibold text-zinc-500">
-                            {win.durationDays} days
+                            {t.daysCount(win.durationDays)}
                           </span>
                         </div>
                       </div>
@@ -249,16 +251,16 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
                       {win.fullAttendance ? (
                         <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700">
                           <CheckCircle className="w-3.5 h-3.5 stroke-[2.5] text-emerald-600 shrink-0" />
-                          <span>100% Free ({totalFriends}/{totalFriends} friends)</span>
+                          <span>{t.allFriendsFreeMatch(totalFriends)}</span>
                         </div>
                       ) : (
                         <div className="space-y-0.5">
                           <div className="flex items-center justify-between text-xs">
                             <span className="font-bold text-emerald-800">
-                              Avg {Math.round(win.averageScore * totalFriends * 10) / 10}/{totalFriends} free
+                              {t.avgFreeMatch(Math.round(win.averageScore * totalFriends * 10) / 10, totalFriends)}
                             </span>
                             <span className="text-[11px] text-zinc-500 font-medium">
-                              Min {win.minAvailable} free
+                              {t.minFreeMatch(win.minAvailable)}
                             </span>
                           </div>
                         </div>
@@ -276,7 +278,7 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
                             title={`${u.name} is unavailable for ${u.daysUnavailable} day(s)`}
                           >
                             <XCircle className="w-3 h-3 text-rose-500 shrink-0" />
-                            <span>{u.name} ({u.daysUnavailable}d)</span>
+                            <span>{t.unavailableDaysBadge(u.name, u.daysUnavailable)}</span>
                           </span>
                         ))}
 
@@ -287,7 +289,7 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
                             title={`${m.name} marked maybe for ${m.daysMaybe} day(s)`}
                           >
                             <HelpCircle className="w-3 h-3 text-amber-600 shrink-0" />
-                            <span>{m.name} ({m.daysMaybe}d)</span>
+                            <span>{t.maybeDaysBadge(m.name, m.daysMaybe)}</span>
                           </span>
                         ))}
                       </div>
@@ -313,7 +315,7 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
                       }`}
                     >
                       <Eye className="w-3.5 h-3.5" />
-                      <span>{isSelected ? 'Viewing' : 'Highlight'}</span>
+                      <span>{isSelected ? t.viewingBtn : t.highlightBtn}</span>
                     </button>
 
                     {isAdmin && (
@@ -327,7 +329,7 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
                         title="Choose and lock this date (Organizer)"
                       >
                         <Check className="w-3.5 h-3.5 text-amber-700 stroke-[2.5]" />
-                        <span>Lock Date</span>
+                        <span>{t.lockDateBtn}</span>
                       </button>
                     )}
                   </div>
@@ -343,7 +345,7 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
                 onClick={() => setShowAll(!showAll)}
                 className="text-xs font-semibold text-zinc-600 hover:text-zinc-900 px-4 py-2 rounded-xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 transition-colors cursor-pointer"
               >
-                {showAll ? 'Show top 3 only' : `Show all ${windows.length} windows`}
+                {showAll ? t.showTopOnlyBtn : t.showAllBtn(windows.length)}
               </button>
             </div>
           )}

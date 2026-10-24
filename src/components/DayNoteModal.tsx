@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from './ui/Modal';
 import { AvailabilityStatus } from '../types';
 import { formatDateSafe } from '../utils/dateCalc';
+import { useTranslation } from '../i18n/LanguageContext';
 import { MessageSquare, Check } from 'lucide-react';
 
 interface DayNoteModalProps {
@@ -21,6 +22,7 @@ export const DayNoteModal: React.FC<DayNoteModalProps> = ({
   currentNote,
   onSave,
 }) => {
+  const { t, dateLocale } = useTranslation();
   const [status, setStatus] = useState<AvailabilityStatus>(currentStatus);
   const [note, setNote] = useState(currentNote);
 
@@ -31,7 +33,7 @@ export const DayNoteModal: React.FC<DayNoteModalProps> = ({
 
   if (!dateStr) return null;
 
-  const dateFormatted = formatDateSafe(dateStr, 'EEEE, MMMM d, yyyy');
+  const dateFormatted = formatDateSafe(dateStr, 'EEEE d MMMM yyyy', dateLocale);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +51,7 @@ export const DayNoteModal: React.FC<DayNoteModalProps> = ({
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1.5">
-            Your Status for this day
+            {t.yourStatusForDay}
           </label>
           <div className="grid grid-cols-3 gap-2">
             <button
@@ -61,7 +63,7 @@ export const DayNoteModal: React.FC<DayNoteModalProps> = ({
                   : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
               }`}
             >
-              Available
+              {t.statusAvailable}
             </button>
             <button
               type="button"
@@ -72,7 +74,7 @@ export const DayNoteModal: React.FC<DayNoteModalProps> = ({
                   : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
               }`}
             >
-              Maybe
+              {t.statusMaybe}
             </button>
             <button
               type="button"
@@ -83,7 +85,7 @@ export const DayNoteModal: React.FC<DayNoteModalProps> = ({
                   : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
               }`}
             >
-              Busy
+              {t.statusBusy}
             </button>
           </div>
         </div>
@@ -91,20 +93,17 @@ export const DayNoteModal: React.FC<DayNoteModalProps> = ({
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1.5 flex items-center gap-1.5">
             <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
-            <span>Add a Note (Optional)</span>
+            <span>{t.addNoteOptional}</span>
           </label>
           <input
             type="text"
             value={note}
             autoFocus
             onChange={(e) => setNote(e.target.value)}
-            placeholder="e.g., Arriving around 8pm, remote work ok"
+            placeholder={t.notePlaceholder}
             maxLength={100}
             className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
           />
-          <p className="text-[11px] text-zinc-400 mt-1">
-            Visible to friends when viewing this day's details.
-          </p>
         </div>
 
         <div className="flex items-center justify-end gap-2 pt-2">
@@ -113,14 +112,14 @@ export const DayNoteModal: React.FC<DayNoteModalProps> = ({
             onClick={onClose}
             className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:bg-zinc-100 transition-colors cursor-pointer"
           >
-            Cancel
+            {t.cancelBtn}
           </button>
           <button
             type="submit"
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-zinc-900 text-white hover:bg-zinc-800 transition-colors cursor-pointer shadow-xs"
           >
             <Check className="w-3.5 h-3.5" />
-            <span>Save Note</span>
+            <span>{t.saveNoteBtn}</span>
           </button>
         </div>
       </form>

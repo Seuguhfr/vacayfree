@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal } from './ui/Modal';
 import { TripEvent } from '../types';
+import { useTranslation } from '../i18n/LanguageContext';
 import { Copy, Check, MessageCircle, ExternalLink, ShieldCheck } from 'lucide-react';
 
 interface ShareModalProps {
@@ -14,6 +15,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   onClose,
   event,
 }) => {
+  const { t } = useTranslation();
   const [copiedShare, setCopiedShare] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState(false);
 
@@ -32,7 +34,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     }
   };
 
-  const inviteMessage = `Hey everyone! Let's find the best dates for "${event.title}". Pick your free days here: ${shareUrl}`;
+  const inviteMessage = t.inviteMessageText(event.title, shareUrl);
 
   const openWhatsApp = () => {
     const waUrl = `https://wa.me/?text=${encodeURIComponent(inviteMessage)}`;
@@ -40,12 +42,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Share Trip Poll" maxWidthClass="max-w-md">
+    <Modal isOpen={isOpen} onClose={onClose} title={t.shareModalTitle} maxWidthClass="max-w-md">
       <div className="space-y-4">
         {/* Safe Friend Link */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1.5">
-            Shareable Link for Group Chat
+            {t.shareableLinkChat}
           </label>
           <div className="flex items-center gap-2">
             <input
@@ -62,19 +64,19 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               {copiedShare ? (
                 <>
                   <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>Copied</span>
+                  <span>{t.copiedBtn}</span>
                 </>
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5" />
-                  <span>Copy</span>
+                  <span>{t.copyBtn}</span>
                 </>
               )}
             </button>
           </div>
           <p className="text-[11px] text-zinc-500 mt-1 flex items-center gap-1">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span>Safe for friends. Does not include organizer admin controls.</span>
+            <span>{t.safeLinkNotice}</span>
           </p>
         </div>
 
@@ -83,14 +85,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-zinc-700 flex items-center gap-1.5">
               <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-              Quick Group Message
+              {t.quickGroupMessageTitle}
             </span>
             <button
               type="button"
               onClick={() => handleCopy(inviteMessage, 'msg')}
               className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 transition-colors cursor-pointer"
             >
-              {copiedMessage ? 'Copied!' : 'Copy message'}
+              {copiedMessage ? t.copiedMessageToast : t.copyMessageBtn}
             </button>
           </div>
           <p className="text-xs text-zinc-700 bg-white p-2.5 rounded-lg border border-zinc-200/60 leading-relaxed font-sans">
@@ -101,7 +103,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             onClick={openWhatsApp}
             className="w-full inline-flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
           >
-            <span>Open in WhatsApp</span>
+            <span>{t.whatsappBtn}</span>
             <ExternalLink className="w-3.5 h-3.5" />
           </button>
         </div>

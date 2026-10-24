@@ -2,6 +2,7 @@ import React from 'react';
 import { Modal } from './ui/Modal';
 import { DaySummary } from '../types';
 import { formatDateSafe } from '../utils/dateCalc';
+import { useTranslation } from '../i18n/LanguageContext';
 import { CheckCircle2, HelpCircle, XCircle, MessageSquare } from 'lucide-react';
 
 interface DayDetailsModalProps {
@@ -15,9 +16,10 @@ export const DayDetailsModal: React.FC<DayDetailsModalProps> = ({
   onClose,
   daySummary,
 }) => {
+  const { t, dateLocale } = useTranslation();
   if (!daySummary) return null;
 
-  const dateFormatted = formatDateSafe(daySummary.date, 'EEEE, MMMM d, yyyy');
+  const dateFormatted = formatDateSafe(daySummary.date, 'EEEE d MMMM yyyy', dateLocale);
 
   const availableList = daySummary.participants.filter(p => p.status === 'available');
   const maybeList = daySummary.participants.filter(p => p.status === 'maybe');
@@ -35,14 +37,14 @@ export const DayDetailsModal: React.FC<DayDetailsModalProps> = ({
         <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200/80">
           <div>
             <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider block">
-              Group Attendance
+              {t.groupAttendanceTitle}
             </span>
             <span className="text-base font-bold text-zinc-900">
-              {daySummary.availableCount} of {daySummary.totalParticipants} friends free
+              {t.friendsFreeText(daySummary.availableCount, daySummary.totalParticipants)}
             </span>
             {daySummary.maybeCount > 0 && (
               <span className="text-xs text-amber-800 ml-1.5 font-medium">
-                (+{daySummary.maybeCount} maybe)
+                {t.maybeCountText(daySummary.maybeCount)}
               </span>
             )}
           </div>
@@ -54,7 +56,7 @@ export const DayDetailsModal: React.FC<DayDetailsModalProps> = ({
                 ? 'bg-amber-100 text-amber-800 border border-amber-200'
                 : 'bg-zinc-200 text-zinc-700'
             }`}>
-              {daySummary.percentage}% match
+              {t.matchScoreText(daySummary.percentage)}
             </span>
           </div>
         </div>
@@ -63,10 +65,10 @@ export const DayDetailsModal: React.FC<DayDetailsModalProps> = ({
         <div>
           <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-emerald-800 mb-1.5">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Available ({availableList.length})</span>
+            <span>{t.availableSectionTitle(availableList.length)}</span>
           </div>
           {availableList.length === 0 ? (
-            <p className="text-xs text-zinc-400 italic pl-5">Nobody marked free yet</p>
+            <p className="text-xs text-zinc-400 italic pl-5">{t.nobodyAvailableYet}</p>
           ) : (
             <div className="space-y-1.5 pl-1">
               {availableList.map(p => (
@@ -77,7 +79,7 @@ export const DayDetailsModal: React.FC<DayDetailsModalProps> = ({
                       <span className="text-xs font-bold text-zinc-900">{p.participantName}</span>
                     </div>
                     <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100/60 px-1.5 py-0.2 rounded">
-                      Available
+                      {t.statusAvailable}
                     </span>
                   </div>
                   {p.note && (
@@ -97,7 +99,7 @@ export const DayDetailsModal: React.FC<DayDetailsModalProps> = ({
           <div>
             <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-amber-800 mb-1.5">
               <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
-              <span>Maybe / If Needed ({maybeList.length})</span>
+              <span>{t.maybeSectionTitle(maybeList.length)}</span>
             </div>
             <div className="space-y-1.5 pl-1">
               {maybeList.map(p => (
@@ -108,7 +110,7 @@ export const DayDetailsModal: React.FC<DayDetailsModalProps> = ({
                       <span className="text-xs font-bold text-zinc-900">{p.participantName}</span>
                     </div>
                     <span className="text-[10px] font-semibold text-amber-800 bg-amber-100/60 px-1.5 py-0.2 rounded">
-                      Maybe
+                      {t.statusMaybe}
                     </span>
                   </div>
                   {p.note && (
@@ -127,7 +129,7 @@ export const DayDetailsModal: React.FC<DayDetailsModalProps> = ({
         <div>
           <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-rose-800 mb-1.5">
             <XCircle className="w-3.5 h-3.5 text-rose-500" />
-            <span>Busy / Unavailable ({busyList.length})</span>
+            <span>{t.unavailableSectionTitle(busyList.length)}</span>
           </div>
           {busyList.length === 0 ? (
             <p className="text-xs text-emerald-700 italic pl-5">Nobody is busy on this date!</p>
@@ -141,7 +143,7 @@ export const DayDetailsModal: React.FC<DayDetailsModalProps> = ({
                       <span className="text-xs font-medium text-zinc-700">{p.participantName}</span>
                     </div>
                     <span className="text-[10px] font-medium text-zinc-500 bg-zinc-200/60 px-1.5 py-0.2 rounded">
-                      Busy
+                      {t.statusBusy}
                     </span>
                   </div>
                   {p.note && (
