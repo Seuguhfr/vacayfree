@@ -42,21 +42,11 @@ export const Header: React.FC<HeaderProps> = ({
               <Palmtree className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className={`font-bold text-base sm:text-lg tracking-tight text-zinc-900 leading-none group-hover:text-emerald-700 transition-colors ${
-                  event ? 'hidden sm:inline' : ''
-                }`}>
-                  {t.appName}
-                </span>
-                <span className="hidden sm:inline-block text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/60">
-                  {t.vacationPoll}
-                </span>
-              </div>
-              {event && (
-                <p className="hidden sm:block text-xs text-zinc-500 font-medium truncate max-w-[160px] sm:max-w-xs mt-0.5">
-                  {event.title}
-                </p>
-              )}
+              <span className={`font-bold text-base sm:text-lg tracking-tight text-zinc-900 leading-none group-hover:text-emerald-700 transition-colors ${
+                event ? 'hidden sm:inline' : ''
+              }`}>
+                {t.appName}
+              </span>
             </div>
           </button>
         </div>

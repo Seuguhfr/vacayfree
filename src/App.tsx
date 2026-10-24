@@ -30,7 +30,7 @@ import { AdminModal } from './components/AdminModal';
 import { PinModal } from './components/PinModal';
 import { DayDetailsModal } from './components/DayDetailsModal';
 
-import { Palmtree, Sparkles, Plus, Calendar, Users, Compass, X, Unlock, AlertTriangle } from 'lucide-react';
+import { Palmtree, Sparkles, Plus, X, Unlock, AlertTriangle } from 'lucide-react';
 
 export default function App() {
   const { t, dateLocale } = useTranslation();
@@ -488,12 +488,9 @@ export default function App() {
             {/* Recent Polls on this Device (if any real trips are stored) */}
             {recentTrips.length > 0 && (
               <div className="pt-2 text-left max-w-lg mx-auto w-full space-y-2.5">
-                <div className="flex items-center justify-between px-1">
+                <div className="px-1">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
                     {t.recentPollsTitle}
-                  </span>
-                  <span className="text-[10px] text-zinc-400">
-                    {t.savedInBrowser}
                   </span>
                 </div>
                 <div className="space-y-2">
@@ -541,33 +538,6 @@ export default function App() {
                 </div>
               </div>
             )}
-
-            {/* Feature Highlights */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-10 text-left border-t border-zinc-200/60">
-              <div className="p-4 rounded-2xl bg-white border border-zinc-200/80 shadow-xs">
-                <Users className="w-5 h-5 text-emerald-600 mb-2" />
-                <h3 className="font-bold text-sm text-zinc-900">{t.featureZeroAccountsTitle}</h3>
-                <p className="text-xs text-zinc-500 mt-1">
-                  {t.featureZeroAccountsDesc}
-                </p>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-white border border-zinc-200/80 shadow-xs">
-                <Calendar className="w-5 h-5 text-indigo-600 mb-2" />
-                <h3 className="font-bold text-sm text-zinc-900">{t.featurePainterTitle}</h3>
-                <p className="text-xs text-zinc-500 mt-1">
-                  {t.featurePainterDesc}
-                </p>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-white border border-zinc-200/80 shadow-xs">
-                <Compass className="w-5 h-5 text-amber-600 mb-2" />
-                <h3 className="font-bold text-sm text-zinc-900">{t.featureFinderTitle}</h3>
-                <p className="text-xs text-zinc-500 mt-1">
-                  {t.featureFinderDesc}
-                </p>
-              </div>
-            </div>
           </div>
         ) : (
           /* Active Poll Dashboard */

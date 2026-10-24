@@ -23,7 +23,6 @@ import {
   CheckCircle2,
   HelpCircle,
   RotateCcw,
-  Info,
   Users,
 } from 'lucide-react';
 import { DayNoteModal } from './DayNoteModal';
@@ -259,9 +258,6 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
               {/* Brush selection (visible when in painter tab) */}
               {viewTab === 'paint' && (
                 <div className="flex items-center gap-1.5 pl-1 sm:pl-2 sm:border-l sm:border-zinc-200 shrink-0">
-                  <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider hidden sm:inline">
-                    {t.brushLabel}
-                  </span>
                   <button
                     type="button"
                     onClick={() => setBrushTool('available')}
@@ -366,7 +362,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                 )}
               </div>
               <button
-                type="button"
+                type="submit"
                 onClick={handleSave}
                 className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer w-full sm:w-auto shrink-0 ${
                   isDirty
@@ -378,56 +374,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                 <span>{isDirty ? t.saveChanges : (quotaExceeded ? t.savedLocallyQuota : t.savedToast)}</span>
               </button>
             </div>
-          ) : (
-            <div className="flex items-center gap-2 text-xs text-zinc-600">
-              <p className="text-[11px] font-medium text-zinc-500 flex items-center gap-1">
-                <Info className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                <span>{t.groupOverviewTapHint}</span>
-              </p>
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
-
-      {/* Non-sticky Instructional Context Banners (scroll naturally out of the way) */}
-      {currentParticipant && viewTab === 'paint' && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-600 shadow-2xs">
-          {brushTool === 'note' ? (
-            <>
-              <MessageSquare className="w-4 h-4 text-indigo-600 shrink-0" />
-              <span>
-                <strong>{t.brushNote} :</strong> {t.noteToolBannerHint}
-              </span>
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>
-                <strong>{t.brushLabel}</strong> {t.clickOrDragHint}. {t.noteToolHint}.
-              </span>
-            </>
-          )}
-        </div>
-      )}
-
-      {currentParticipant && viewTab === 'heatmap' && (
-        <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-indigo-50 border border-indigo-200/90 text-xs text-indigo-950 shadow-2xs">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-indigo-600 shrink-0" />
-            <span>
-              <strong>{t.groupHeatmapTab} :</strong> {t.windowsSubtitle}.
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setViewTab('paint')}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-indigo-700 hover:bg-indigo-100 border border-indigo-200 shadow-2xs cursor-pointer transition-colors shrink-0"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-            <span>{t.myDatesTab}</span>
-          </button>
-        </div>
-      )}
 
       {/* Calendar Months Grid */}
       <div id="calendar-months" className="grid grid-cols-1 lg:grid-cols-2 gap-5">

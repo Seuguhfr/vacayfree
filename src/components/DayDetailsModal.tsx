@@ -34,11 +34,8 @@ export const DayDetailsModal: React.FC<DayDetailsModalProps> = ({
     >
       <div className="space-y-4">
         {/* Score banner */}
-        <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200/80">
+        <div className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-50 border border-zinc-200/80">
           <div>
-            <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider block">
-              {t.groupAttendanceTitle}
-            </span>
             <span className="text-base font-bold text-zinc-900">
               {t.friendsFreeText(daySummary.availableCount, daySummary.totalParticipants)}
             </span>

@@ -92,18 +92,13 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
             <h2 className="text-base sm:text-lg font-bold text-zinc-900 tracking-tight">
               {t.bestWindowsTitle}
             </h2>
-            {fullAttendanceCount > 0 ? (
+            {fullAttendanceCount > 0 && (
               <span className="text-[11px] text-emerald-800 font-bold bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-amber-500" />
                 {t.allFreeBadge(fullAttendanceCount)}
               </span>
-            ) : (
-              <span className="text-[11px] text-zinc-400 font-medium">{t.optionsCount(windows.length)}</span>
             )}
           </div>
-          <p className="text-xs text-zinc-500 mt-0.5">
-            {t.windowsSubtitle}
-          </p>
         </div>
 
         {/* Duration Selector Pills */}

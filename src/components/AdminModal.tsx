@@ -148,7 +148,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   <ShieldCheck className="w-4 h-4 text-amber-700" />
                   {t.adminAccessGranted}
                 </span>
-                <span className="text-[10px] text-amber-700 font-mono">Private</span>
               </div>
               <p className="text-[11px] text-amber-800 leading-tight">
                 {t.adminLinkSaveWarning}
