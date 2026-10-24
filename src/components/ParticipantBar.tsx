@@ -1,6 +1,7 @@
 import React from 'react';
 import { Participant, ParticipantResponse } from '../types';
-import { UserPlus, CheckCircle2, User, Lock, LogOut } from 'lucide-react';
+import { formatWindowRange } from '../utils/dateCalc';
+import { UserPlus, CheckCircle2, User, Lock, Unlock, LogOut } from 'lucide-react';
 
 interface ParticipantBarProps {
   eventTitle: string;
@@ -9,6 +10,9 @@ interface ParticipantBarProps {
   responses: ParticipantResponse[];
   currentParticipant: Participant | null;
   isLocked: boolean;
+  isAdmin?: boolean;
+  lockedWindow?: { startDate: string; endDate: string };
+  onUnlock?: () => void;
   onAddParticipant: () => void;
   onSelectParticipant: (p: Participant) => void;
   onLogoutParticipant: () => void;
@@ -21,6 +25,9 @@ export const ParticipantBar: React.FC<ParticipantBarProps> = ({
   responses,
   currentParticipant,
   isLocked,
+  isAdmin,
+  lockedWindow,
+  onUnlock,
   onAddParticipant,
   onSelectParticipant,
   onLogoutParticipant,
@@ -130,9 +137,28 @@ export const ParticipantBar: React.FC<ParticipantBarProps> = ({
       </div>
 
       {isLocked && (
-        <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200/70 text-amber-900 text-xs flex items-center gap-2">
-          <Lock className="w-4 h-4 text-amber-600 shrink-0" />
-          <span>This poll has been finalized and locked by the organizer. New votes and edits are closed.</span>
+        <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs">
+          <div className="flex items-center gap-2">
+            <Lock className="w-4 h-4 text-amber-700 shrink-0" />
+            <div>
+              <span className="font-bold">
+                {lockedWindow
+                  ? `Trip Finalized: ${formatWindowRange(lockedWindow.startDate, lockedWindow.endDate)}!`
+                  : 'This poll has been finalized and locked.'}
+              </span>
+              <span className="text-amber-800 ml-1">New votes and edits are closed.</span>
+            </div>
+          </div>
+          {isAdmin && onUnlock && (
+            <button
+              type="button"
+              onClick={onUnlock}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-amber-950 border border-amber-300 hover:bg-amber-100 shadow-xs cursor-pointer self-start sm:self-center shrink-0 transition-colors"
+            >
+              <Unlock className="w-3.5 h-3.5 text-amber-700" />
+              <span>Unlock Poll</span>
+            </button>
+          )}
         </div>
       )}
     </div>

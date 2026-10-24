@@ -29,9 +29,8 @@ import { ShareModal } from './components/ShareModal';
 import { AdminModal } from './components/AdminModal';
 import { PinModal } from './components/PinModal';
 import { DayDetailsModal } from './components/DayDetailsModal';
-import { DayNoteModal } from './components/DayNoteModal';
 
-import { Palmtree, Sparkles, Plus, Calendar, Users, Compass, Eye, X } from 'lucide-react';
+import { Palmtree, Sparkles, Plus, Calendar, Users, Compass, X, Unlock } from 'lucide-react';
 
 export default function App() {
   const [eventData, setEventData] = useState<EventDataPackage | null>(null);
@@ -49,17 +48,6 @@ export default function App() {
   const [isPinOpen, setIsPinOpen] = useState(false);
   const [pinTarget, setPinTarget] = useState<Participant | null>(null);
   const [selectedDaySummary, setSelectedDaySummary] = useState<DaySummary | null>(null);
-  const [noteModal, setNoteModal] = useState<{
-    isOpen: boolean;
-    dateStr: string | null;
-    status: AvailabilityStatus;
-    note: string;
-  }>({
-    isOpen: false,
-    dateStr: null,
-    status: 'available',
-    note: '',
-  });
 
   // Parse URL: check query params (?event=...) AND hash (#event=...)
   const parseUrlParams = useCallback(() => {
@@ -302,38 +290,21 @@ export default function App() {
     StorageService.saveEvent(updated);
   };
 
-  const handleOpenDayNote = (
-    dateStr: string,
-    currentStatus: AvailabilityStatus,
-    currentNote: string
-  ) => {
-    setNoteModal({
-      isOpen: true,
-      dateStr,
-      status: currentStatus,
-      note: currentNote,
+  const handleFinalizeWindow = (win: TripWindow) => {
+    // Never overwrite event.startDate or event.endDate so calendar horizon is never destroyed!
+    handleUpdateEvent({
+      isLocked: true,
+      lockedWindow: {
+        startDate: win.startDate,
+        endDate: win.endDate,
+      },
     });
   };
 
-  const handleSaveDayNote = (dateStr: string, status: AvailabilityStatus, note: string) => {
-    if (!myResponse && !currentParticipant) return;
-    const curMap = myResponse?.availability || {};
-    const updated = {
-      ...curMap,
-      [dateStr]: {
-        date: dateStr,
-        status,
-        note,
-      },
-    };
-    handleSaveAvailability(updated);
-  };
-
-  const handleFinalizeWindow = (win: TripWindow) => {
+  const handleUnlockEvent = () => {
     handleUpdateEvent({
-      startDate: win.startDate,
-      endDate: win.endDate,
-      isLocked: true,
+      isLocked: false,
+      lockedWindow: undefined,
     });
   };
 
@@ -482,6 +453,9 @@ export default function App() {
               responses={eventData.responses}
               currentParticipant={currentParticipant}
               isLocked={eventData.event.isLocked}
+              isAdmin={isAdmin}
+              lockedWindow={eventData.event.lockedWindow}
+              onUnlock={handleUnlockEvent}
               onAddParticipant={() => {
                 setPinTarget(null);
                 setIsPinOpen(true);
@@ -490,95 +464,79 @@ export default function App() {
               onLogoutParticipant={handleLogoutParticipant}
             />
 
-            {/* TOP MATCH PODIUM STRIP (Instant glance before scrolling) */}
-            {tripWindows.length > 0 && (
-              <div className="bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-teal-500/10 border border-amber-500/30 rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl select-none leading-none">🥇</span>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold uppercase tracking-wider text-amber-900">
-                        Best Trip Match:
-                      </span>
-                      <span className="text-sm sm:text-base font-extrabold text-zinc-950">
-                        {formatWindowRange(tripWindows[0].startDate, tripWindows[0].endDate)}
-                      </span>
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                        {tripWindows[0].fullAttendance
-                          ? '100% Free'
-                          : `${Math.round(tripWindows[0].averageScore * 100)}% Match`}
-                      </span>
-                      <span className="text-[11px] font-semibold text-zinc-500">
-                        ({targetDuration}d)
-                      </span>
-                    </div>
-                    <p className="text-xs text-zinc-600 mt-0.5">
-                      {tripWindows[0].fullAttendance
-                        ? `All ${eventData.participants.length} friends free every day!`
-                        : `Avg ${Math.round(tripWindows[0].averageScore * eventData.participants.length * 10) / 10}/${eventData.participants.length} friends free (min ${tripWindows[0].minAvailable})`}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const isSelected =
-                        selectedWindow &&
-                        selectedWindow.startDate === tripWindows[0].startDate &&
-                        selectedWindow.endDate === tripWindows[0].endDate;
-                      setSelectedWindow(isSelected ? null : tripWindows[0]);
-                      document.getElementById('calendar-section')?.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-zinc-800 border border-zinc-200/90 hover:bg-zinc-100 shadow-xs transition-colors cursor-pointer"
-                  >
-                    <Eye className="w-3.5 h-3.5 text-zinc-600" />
-                    <span>
-                      {selectedWindow?.startDate === tripWindows[0].startDate ? 'Viewing' : 'Highlight'}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      document.getElementById('windows-section')?.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                    className="text-xs font-semibold text-zinc-600 hover:text-zinc-900 px-2 py-1 cursor-pointer transition-colors"
-                  >
-                    See all options ↓
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* FULL-WIDTH CALENDAR HEATMAP (Spacious 2-Month Grid on Top) */}
             <section id="calendar-section" className="scroll-mt-20">
               <CalendarGrid
                 startDateStr={eventData.event.startDate}
                 endDateStr={eventData.event.endDate}
                 daySummaries={daySummaries}
-                selectedWindow={selectedWindow}
+                selectedWindow={
+                  eventData.event.isLocked && eventData.event.lockedWindow
+                    ? {
+                        startDate: eventData.event.lockedWindow.startDate,
+                        endDate: eventData.event.lockedWindow.endDate,
+                        durationDays: targetDuration,
+                        averageScore: 1,
+                        minAvailable: eventData.participants.length,
+                        fullAttendance: true,
+                        attendancePercentage: 100,
+                        daySummaries: [],
+                        unavailableParticipants: [],
+                      }
+                    : selectedWindow
+                }
                 currentParticipant={currentParticipant}
                 myResponse={myResponse}
                 onSaveAvailability={handleSaveAvailability}
                 onSelectDayDetails={setSelectedDaySummary}
-                onOpenDayNote={handleOpenDayNote}
               />
             </section>
 
-            {/* FULL-WIDTH SMART TRIP WINDOW FINDER (Horizontal 3-Column Podium Cards Below) */}
+            {/* SMART TRIP WINDOW FINDER OR FINALIZED TRIP CELEBRATION */}
             <section id="windows-section" className="scroll-mt-20">
-              <TripWindowFinder
-                windows={tripWindows}
-                selectedWindow={selectedWindow}
-                onSelectWindow={setSelectedWindow}
-                targetDuration={targetDuration}
-                onChangeDuration={setTargetDuration}
-                participants={eventData.participants}
-                isAdmin={isAdmin}
-                onFinalizeDate={handleFinalizeWindow}
-              />
+              {eventData.event.isLocked ? (
+                <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-amber-50 rounded-2xl border border-emerald-200/90 p-6 text-center space-y-3 shadow-xs">
+                  <div className="inline-flex p-3 rounded-2xl bg-emerald-600 text-white shadow-md shadow-emerald-600/20">
+                    <Sparkles className="w-7 h-7 stroke-[2.2]" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-xl font-extrabold text-zinc-950">
+                      Trip Dates Finalized! 🎉
+                    </h3>
+                    <p className="text-base font-bold text-emerald-900">
+                      {eventData.event.lockedWindow
+                        ? formatWindowRange(eventData.event.lockedWindow.startDate, eventData.event.lockedWindow.endDate)
+                        : `${eventData.event.startDate} – ${eventData.event.endDate}`}
+                    </p>
+                    <p className="text-xs text-zinc-600 max-w-md mx-auto">
+                      The organizer has locked this trip poll. Availability voting and edits are now closed.
+                    </p>
+                  </div>
+                  {isAdmin && (
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={handleUnlockEvent}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-white text-zinc-800 border border-zinc-300 hover:bg-zinc-100 shadow-xs cursor-pointer transition-colors"
+                      >
+                        <Unlock className="w-3.5 h-3.5 text-zinc-600" />
+                        <span>Unlock Poll to Change Dates</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <TripWindowFinder
+                  windows={tripWindows}
+                  selectedWindow={selectedWindow}
+                  onSelectWindow={setSelectedWindow}
+                  targetDuration={targetDuration}
+                  onChangeDuration={setTargetDuration}
+                  participants={eventData.participants}
+                  isAdmin={isAdmin}
+                  onFinalizeDate={handleFinalizeWindow}
+                />
+              )}
             </section>
           </div>
         )}
@@ -624,15 +582,6 @@ export default function App() {
             isOpen={!!selectedDaySummary}
             onClose={() => setSelectedDaySummary(null)}
             daySummary={selectedDaySummary}
-          />
-
-          <DayNoteModal
-            isOpen={noteModal.isOpen}
-            onClose={() => setNoteModal(prev => ({ ...prev, isOpen: false }))}
-            dateStr={noteModal.dateStr}
-            currentStatus={noteModal.status}
-            currentNote={noteModal.note}
-            onSave={handleSaveDayNote}
           />
         </>
       )}

@@ -25,6 +25,7 @@ import {
   RotateCcw,
   Info,
 } from 'lucide-react';
+import { DayNoteModal } from './DayNoteModal';
 
 interface CalendarGridProps {
   startDateStr: string;
@@ -35,7 +36,7 @@ interface CalendarGridProps {
   myResponse: ParticipantResponse | null;
   onSaveAvailability: (availability: Record<string, { date: string; status: AvailabilityStatus; note?: string }>) => void;
   onSelectDayDetails: (summary: DaySummary) => void;
-  onOpenDayNote: (dateStr: string, currentStatus: AvailabilityStatus, currentNote: string) => void;
+  onOpenDayNote?: (dateStr: string, currentStatus: AvailabilityStatus, currentNote: string) => void;
 }
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -49,7 +50,6 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   myResponse,
   onSaveAvailability,
   onSelectDayDetails,
-  onOpenDayNote,
 }) => {
   // Paint mode state
   const isPaintMode = !!currentParticipant;
@@ -59,6 +59,20 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   );
   const [isDirty, setIsDirty] = useState(false);
   const isPointerDown = useRef(false);
+  const activeDragStatus = useRef<AvailabilityStatus | null>(null);
+
+  // Internal Day Note Modal state
+  const [noteModal, setNoteModal] = useState<{
+    isOpen: boolean;
+    dateStr: string | null;
+    status: AvailabilityStatus;
+    note: string;
+  }>({
+    isOpen: false,
+    dateStr: null,
+    status: 'available',
+    note: '',
+  });
 
   // Sync when participant or response changes
   React.useEffect(() => {
@@ -77,20 +91,37 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     currMonth = new Date(currMonth.getFullYear(), currMonth.getMonth() + 1, 1);
   }
 
-  // Paint interactions
+  // Paint interactions (FL Studio channel rack style toggle)
   const handleCellPointerDown = (dateKey: string) => {
     if (!isPaintMode) return;
     isPointerDown.current = true;
-    paintDay(dateKey, brushStatus);
+    const curStatus = localAvail[dateKey]?.status || 'busy';
+    // If cell is already on the brush state, toggle it back to 'busy'; otherwise set to brushStatus
+    const nextStatus: AvailabilityStatus = curStatus === brushStatus ? 'busy' : brushStatus;
+    activeDragStatus.current = nextStatus;
+    paintDay(dateKey, nextStatus);
   };
 
   const handleCellPointerEnter = (dateKey: string) => {
-    if (!isPaintMode || !isPointerDown.current) return;
-    paintDay(dateKey, brushStatus);
+    if (!isPaintMode || !isPointerDown.current || !activeDragStatus.current) return;
+    paintDay(dateKey, activeDragStatus.current);
   };
 
   const handlePointerUp = () => {
     isPointerDown.current = false;
+    activeDragStatus.current = null;
+  };
+
+  const handleSaveDayNoteInternal = (dateStr: string, status: AvailabilityStatus, note: string) => {
+    setLocalAvail((prev) => ({
+      ...prev,
+      [dateStr]: {
+        date: dateStr,
+        status,
+        note,
+      },
+    }));
+    setIsDirty(true);
   };
 
   const paintDay = (dateKey: string, status: AvailabilityStatus) => {
@@ -143,88 +174,99 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     >
       {/* Paint Mode Controls Toolbar */}
       {isPaintMode && (
-        <div className="sticky top-16 z-20 bg-white/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
-          {/* Brush selection */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mr-1">
-              Brush:
-            </span>
-            <button
-              type="button"
-              onClick={() => setBrushStatus('available')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                brushStatus === 'available'
-                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/20'
-                  : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-              }`}
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Available</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setBrushStatus('maybe')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                brushStatus === 'maybe'
-                  ? 'bg-amber-500 text-white border-amber-500 shadow-xs ring-2 ring-amber-500/20'
-                  : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
-              }`}
-            >
-              <HelpCircle className="w-3.5 h-3.5" />
-              <span>Maybe</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setBrushStatus('busy')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                brushStatus === 'busy'
-                  ? 'bg-rose-600 text-white border-rose-600 shadow-xs ring-2 ring-rose-500/20'
-                  : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
-              }`}
-            >
-              <XCircle className="w-3.5 h-3.5" />
-              <span>Busy</span>
-            </button>
-          </div>
-
-          {/* Quick presets & Save */}
-          <div className="flex items-center gap-2 self-end md:self-auto">
-            <button
-              type="button"
-              onClick={() => handleQuickFill('available')}
-              className="text-[11px] font-medium text-zinc-600 hover:text-zinc-900 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
-            >
-              All Free
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickFill('busy')}
-              className="text-[11px] font-medium text-zinc-600 hover:text-zinc-900 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
-            >
-              All Busy
-            </button>
-            {isDirty && (
+        <div className="sticky top-16 z-20 space-y-2">
+          <div className="bg-white/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+            {/* Brush selection with FL Studio toggle indicator */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mr-1">
+                Brush:
+              </span>
               <button
                 type="button"
-                onClick={handleReset}
-                className="text-[11px] font-medium text-zinc-500 hover:text-zinc-800 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors flex items-center gap-1 cursor-pointer"
+                onClick={() => setBrushStatus('available')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                  brushStatus === 'available'
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/20'
+                    : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                }`}
               >
-                <RotateCcw className="w-3 h-3" />
-                Reset
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Available</span>
               </button>
-            )}
-            <button
-              type="button"
-              onClick={handleSave}
-              className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${
-                isDirty
-                  ? 'bg-emerald-600 text-white hover:bg-emerald-700 animate-pulse'
-                  : 'bg-zinc-900 text-white hover:bg-zinc-800'
-              }`}
-            >
-              <Check className="w-3.5 h-3.5" />
-              <span>{isDirty ? 'Save Changes' : 'Saved'}</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setBrushStatus('maybe')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                  brushStatus === 'maybe'
+                    ? 'bg-amber-500 text-white border-amber-500 shadow-xs ring-2 ring-amber-500/20'
+                    : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                }`}
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+                <span>Maybe</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setBrushStatus('busy')}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                  brushStatus === 'busy'
+                    ? 'bg-zinc-800 text-white border-zinc-800 shadow-xs'
+                    : 'bg-zinc-100 text-zinc-700 border-zinc-200 hover:bg-zinc-200'
+                }`}
+                title="Clear dates back to busy"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                <span>Clear</span>
+              </button>
+            </div>
+
+            {/* Quick presets & Clean Save (no distracting pulse) */}
+            <div className="flex items-center gap-2 self-end md:self-auto">
+              <button
+                type="button"
+                onClick={() => handleQuickFill('available')}
+                className="text-[11px] font-medium text-zinc-600 hover:text-zinc-900 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
+              >
+                All Free
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickFill('busy')}
+                className="text-[11px] font-medium text-zinc-600 hover:text-zinc-900 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
+              >
+                All Busy
+              </button>
+              {isDirty && (
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="text-[11px] font-medium text-zinc-500 hover:text-zinc-800 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  Reset
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleSave}
+                className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                  isDirty
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    : 'bg-zinc-900 text-white hover:bg-zinc-800'
+                }`}
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>{isDirty ? 'Save Changes' : 'Saved'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Dynamic Painter Instruction & FL Studio Rack Toggle Hint */}
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-50/90 border border-zinc-200/80 text-xs text-zinc-600 shadow-2xs">
+            <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>
+              <strong>Painter:</strong> Click or drag across days to mark free. Click any active day again to toggle it off. Click the 💬 icon on any day to attach a note.
+            </span>
           </div>
         </div>
       )}
@@ -341,16 +383,21 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onOpenDayNote(dateKey, status, myDay?.note || '');
+                              setNoteModal({
+                                isOpen: true,
+                                dateStr: dateKey,
+                                status,
+                                note: myDay?.note || '',
+                              });
                             }}
-                            className={`p-0.5 rounded transition-colors ${
+                            className={`p-1 rounded-lg transition-colors cursor-pointer ${
                               hasNote
                                 ? status === 'available'
-                                ? 'text-white bg-emerald-700/60'
-                                : 'text-amber-950 bg-amber-500/40'
-                                : 'text-zinc-400 hover:text-zinc-700'
+                                  ? 'text-white bg-emerald-700/80 ring-1 ring-white/50'
+                                  : 'text-amber-950 bg-amber-500/50 ring-1 ring-amber-900/30'
+                                : 'text-zinc-400 hover:text-zinc-800 hover:bg-zinc-200/60'
                             }`}
-                            title={hasNote ? `Note: ${myDay?.note}` : 'Add note'}
+                            title={hasNote ? `Note: ${myDay?.note}` : 'Click to add note'}
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
                           </button>
@@ -430,6 +477,16 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
           );
         })}
       </div>
+
+      {/* Internal Day Note Modal so painted changes are NEVER lost */}
+      <DayNoteModal
+        isOpen={noteModal.isOpen}
+        onClose={() => setNoteModal(prev => ({ ...prev, isOpen: false }))}
+        dateStr={noteModal.dateStr}
+        currentStatus={noteModal.status}
+        currentNote={noteModal.note}
+        onSave={handleSaveDayNoteInternal}
+      />
     </div>
   );
 };
