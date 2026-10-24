@@ -5,6 +5,35 @@ import { format } from 'date-fns';
 
 const STORAGE_PREFIX = 'vacayfree_';
 
+export async function checkResponseForQuota(res: Response): Promise<boolean> {
+  if (res.status === 429) {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('vacay_cloud_quota_exceeded'));
+    }
+    return true;
+  }
+  if (!res.ok) {
+    try {
+      const clone = res.clone();
+      const data = await clone.json();
+      if (
+        data &&
+        (data.error === 'quota_exceeded' ||
+          (typeof data.error === 'string' && data.error.toLowerCase().includes('limit exceeded')) ||
+          (typeof data.message === 'string' && data.message.toLowerCase().includes('limit exceeded')))
+      ) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('vacay_cloud_quota_exceeded'));
+        }
+        return true;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return false;
+}
+
 export interface EventDataPackage {
   event: TripEvent;
   participants: Participant[];
@@ -73,6 +102,7 @@ export const StorageService = {
           adminKey: adminKey || undefined,
         }),
       });
+      await checkResponseForQuota(res);
       return res.ok;
     } catch {
       return false;
@@ -237,6 +267,7 @@ export const StorageService = {
             pin,
           }),
         });
+        await checkResponseForQuota(res);
         return res.ok;
       }
       return true;

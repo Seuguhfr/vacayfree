@@ -198,4 +198,9 @@ export interface TranslationDictionary {
   addNoteOptional: string;
   notePlaceholder: string;
   saveNoteBtn: string;
+
+  // Cloud Quota Notice
+  cloudQuotaTitle: string;
+  cloudQuotaDesc: string;
+  savedLocallyQuota: string;
 }

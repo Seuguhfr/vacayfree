@@ -30,7 +30,7 @@ import { AdminModal } from './components/AdminModal';
 import { PinModal } from './components/PinModal';
 import { DayDetailsModal } from './components/DayDetailsModal';
 
-import { Palmtree, Sparkles, Plus, Calendar, Users, Compass, X, Unlock } from 'lucide-react';
+import { Palmtree, Sparkles, Plus, Calendar, Users, Compass, X, Unlock, AlertTriangle } from 'lucide-react';
 
 export default function App() {
   const { t, dateLocale } = useTranslation();
@@ -49,6 +49,13 @@ export default function App() {
   const [isPinOpen, setIsPinOpen] = useState(false);
   const [pinTarget, setPinTarget] = useState<Participant | null>(null);
   const [selectedDaySummary, setSelectedDaySummary] = useState<DaySummary | null>(null);
+  const [isCloudQuotaExceeded, setIsCloudQuotaExceeded] = useState(false);
+
+  useEffect(() => {
+    const handleQuota = () => setIsCloudQuotaExceeded(true);
+    window.addEventListener('vacay_cloud_quota_exceeded', handleQuota);
+    return () => window.removeEventListener('vacay_cloud_quota_exceeded', handleQuota);
+  }, []);
 
   // Parse URL: check query params (?event=...) AND hash (#event=...)
   const parseUrlParams = useCallback(() => {
@@ -417,6 +424,28 @@ export default function App() {
         onLoadDemo={handleLoadDemo}
         onGoHome={handleGoHome}
       />
+
+      {isCloudQuotaExceeded && (
+        <div className="bg-amber-600 text-white px-4 py-3 shadow-sm transition-all animate-in fade-in">
+          <div className="max-w-5xl mx-auto flex items-start sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-start sm:items-center gap-2.5">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-amber-200 mt-0.5 sm:mt-0" />
+              <div>
+                <span className="font-bold mr-1.5">{t.cloudQuotaTitle} :</span>
+                <span className="text-amber-100">{t.cloudQuotaDesc}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsCloudQuotaExceeded(false)}
+              className="p-1 hover:bg-amber-700 rounded-md transition-colors cursor-pointer shrink-0"
+              title="Fermer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-5 sm:pt-6">
         {!eventData ? (

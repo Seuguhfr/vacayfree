@@ -88,6 +88,14 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     }
   }, [myResponse, currentParticipant, isDirty]);
 
+  const [quotaExceeded, setQuotaExceeded] = useState(false);
+
+  React.useEffect(() => {
+    const handleQuota = () => setQuotaExceeded(true);
+    window.addEventListener('vacay_cloud_quota_exceeded', handleQuota);
+    return () => window.removeEventListener('vacay_cloud_quota_exceeded', handleQuota);
+  }, []);
+
   // When a user selects a participant, switch to paint mode
   React.useEffect(() => {
     if (currentParticipant) {
@@ -326,7 +334,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                 }`}
               >
                 <Check className="w-3.5 h-3.5" />
-                <span>{isDirty ? t.saveChanges : t.savedToast}</span>
+                <span>{isDirty ? t.saveChanges : (quotaExceeded ? t.savedLocallyQuota : t.savedToast)}</span>
               </button>
             </div>
           ) : (

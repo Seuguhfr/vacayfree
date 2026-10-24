@@ -519,8 +519,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal Server Error';
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
+    const isQuota = message.toLowerCase().includes('limit exceeded');
+    return new Response(JSON.stringify({ error: isQuota ? 'quota_exceeded' : message, message }), {
+      status: isQuota ? 429 : 500,
       headers: { 'Content-Type': 'application/json' },
     });
   }

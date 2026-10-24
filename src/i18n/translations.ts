@@ -223,6 +223,12 @@ export const fr: TranslationDictionary = {
   addNoteOptional: 'Ajouter une note (Facultatif)',
   notePlaceholder: 'Ex. Train le soir, dispo l’après-midi uniquement...',
   saveNoteBtn: 'Enregistrer la note',
+
+  // Cloud Quota Notice
+  cloudQuotaTitle: 'Synchronisation Cloud temporairement en pause',
+  cloudQuotaDesc:
+    'Le quota gratuit Cloudflare est temporairement atteint. Vos données sont bien conservées sur cet appareil, et la synchronisation avec vos amis reprendra automatiquement cette nuit à 02h00 (00:00 UTC).',
+  savedLocallyQuota: 'Sauvegardé localement (quota cloud atteint)',
 };
 
 export const en: TranslationDictionary = {
@@ -445,4 +451,10 @@ export const en: TranslationDictionary = {
   addNoteOptional: 'Add a Note (Optional)',
   notePlaceholder: 'e.g., Evening flight, only free afternoon...',
   saveNoteBtn: 'Save Note',
+
+  // Cloud Quota Notice
+  cloudQuotaTitle: 'Cloud Sync Temporarily Paused',
+  cloudQuotaDesc:
+    'The free daily Cloudflare sync quota has been reached. Your dates are safely saved on this device, and group sync will automatically resume tonight at 02:00 CET (00:00 UTC).',
+  savedLocallyQuota: 'Saved locally (cloud quota reached)',
 };
