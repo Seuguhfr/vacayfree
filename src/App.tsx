@@ -124,6 +124,12 @@ export default function App() {
       const { eventId: newId, adminParam: newAdmin } = parseUrlParams();
       if (newId) {
         loadEvent(newId, newAdmin);
+      } else {
+        setEventData(null);
+        setCurrentParticipant(null);
+        setSelectedWindow(null);
+        setIsAdmin(false);
+        setAdminKey(null);
       }
     };
     window.addEventListener('hashchange', handleHashChange);
@@ -158,6 +164,15 @@ export default function App() {
   }, [eventData, currentParticipant]);
 
   // Handlers
+  const handleGoHome = () => {
+    window.location.hash = '';
+    setEventData(null);
+    setCurrentParticipant(null);
+    setSelectedWindow(null);
+    setIsAdmin(false);
+    setAdminKey(null);
+  };
+
   const handleLoadDemo = async () => {
     const demo = await createDemoEvent();
     window.location.hash = `#event=${demo.event.id}&admin=super-secret-demo-admin`;
@@ -285,6 +300,7 @@ export default function App() {
         onOpenAdmin={() => setIsAdminOpen(true)}
         onOpenNewTrip={() => setIsCreateOpen(true)}
         onLoadDemo={handleLoadDemo}
+        onGoHome={handleGoHome}
       />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 pt-6 sm:pt-8">

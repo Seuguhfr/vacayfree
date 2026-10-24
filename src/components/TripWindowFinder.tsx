@@ -11,6 +11,7 @@ import {
   PartyPopper,
   Flame,
   CalendarCheck2,
+  Sliders,
 } from 'lucide-react';
 
 interface TripWindowFinderProps {
@@ -31,6 +32,8 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
   participants,
 }) => {
   const [showAll, setShowAll] = useState(false);
+  const [isCustom, setIsCustom] = useState(![3, 7, 14].includes(targetDuration));
+  const [customDays, setCustomDays] = useState(targetDuration || 5);
   const totalFriends = participants.length;
 
   const triggerCelebration = (w: TripWindow) => {
@@ -44,6 +47,25 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
     } catch {
       // ignore
     }
+  };
+
+  const handleSelectPreset = (days: number) => {
+    setIsCustom(false);
+    onChangeDuration(days);
+  };
+
+  const handleCustomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value, 10);
+    if (!isNaN(val) && val >= 1) {
+      setCustomDays(val);
+      onChangeDuration(val);
+    }
+  };
+
+  const handleCustomStep = (delta: number) => {
+    const next = Math.max(1, customDays + delta);
+    setCustomDays(next);
+    onChangeDuration(next);
   };
 
   const topWindows = showAll ? windows.slice(0, 10) : windows.slice(0, 3);
@@ -67,31 +89,97 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
           </p>
         </div>
 
-        {/* Duration Pills */}
+        {/* Duration Pills: Weekend (3d), Week (7d), 2 Weeks (14d), Custom */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-          {[
-            { label: 'Weekend (3d)', days: 3 },
-            { label: '4 days', days: 4 },
-            { label: '5 days', days: 5 },
-            { label: '1 Week (7d)', days: 7 },
-            { label: '10 days', days: 10 },
-            { label: '2 Weeks (14d)', days: 14 },
-          ].map(opt => (
-            <button
-              key={opt.days}
-              type="button"
-              onClick={() => onChangeDuration(opt.days)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
-                targetDuration === opt.days
-                  ? 'bg-zinc-900 text-white border-zinc-900 shadow-xs'
-                  : 'bg-zinc-50 text-zinc-700 border-zinc-200/70 hover:bg-zinc-100'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+          <button
+            type="button"
+            onClick={() => handleSelectPreset(3)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
+              !isCustom && targetDuration === 3
+                ? 'bg-zinc-900 text-white border-zinc-900 shadow-xs'
+                : 'bg-zinc-50 text-zinc-700 border-zinc-200/70 hover:bg-zinc-100'
+            }`}
+          >
+            Weekend (3d)
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSelectPreset(7)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
+              !isCustom && targetDuration === 7
+                ? 'bg-zinc-900 text-white border-zinc-900 shadow-xs'
+                : 'bg-zinc-50 text-zinc-700 border-zinc-200/70 hover:bg-zinc-100'
+            }`}
+          >
+            1 Week (7d)
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSelectPreset(14)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
+              !isCustom && targetDuration === 14
+                ? 'bg-zinc-900 text-white border-zinc-900 shadow-xs'
+                : 'bg-zinc-50 text-zinc-700 border-zinc-200/70 hover:bg-zinc-100'
+            }`}
+          >
+            2 Weeks (14d)
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsCustom(true);
+              onChangeDuration(customDays);
+            }}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
+              isCustom
+                ? 'bg-zinc-900 text-white border-zinc-900 shadow-xs'
+                : 'bg-zinc-50 text-zinc-700 border-zinc-200/70 hover:bg-zinc-100'
+            }`}
+          >
+            <Sliders className="w-3.5 h-3.5" />
+            <span>Custom{isCustom ? ` (${targetDuration}d)` : ''}</span>
+          </button>
         </div>
       </div>
+
+      {/* Custom Duration Input Bar when Custom is active */}
+      {isCustom && (
+        <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200/80">
+          <span className="text-xs font-semibold text-zinc-700">
+            Set custom trip length:
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleCustomStep(-1)}
+              className="w-7 h-7 rounded-lg bg-white border border-zinc-300 text-zinc-700 font-bold hover:bg-zinc-100 flex items-center justify-center cursor-pointer text-sm"
+            >
+              -
+            </button>
+            <div className="flex items-center gap-1 bg-white px-3 py-1 rounded-lg border border-zinc-300">
+              <input
+                type="number"
+                min={1}
+                max={60}
+                value={customDays}
+                onChange={handleCustomChange}
+                className="w-10 text-center font-bold text-xs text-zinc-900 focus:outline-none"
+              />
+              <span className="text-xs text-zinc-500 font-medium">days</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleCustomStep(1)}
+              className="w-7 h-7 rounded-lg bg-white border border-zinc-300 text-zinc-700 font-bold hover:bg-zinc-100 flex items-center justify-center cursor-pointer text-sm"
+            >
+              +
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Stats summary badge */}
       {totalFriends > 0 && windows.length > 0 && (
