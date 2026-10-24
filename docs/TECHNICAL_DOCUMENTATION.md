@@ -186,19 +186,27 @@ Given an event date interval of length $T$ days and a target vacation duration $
 
 ---
 
-## 5. UI Architecture & 2-Column Desktop Layout
+## 5. UI Architecture & Responsive Layout Hierarchy
+
+The application utilizes a spacious, full-width single-column stack layout (`max-w-5xl mx-auto space-y-8`) designed to prevent date string truncation and cell crowding:
+
+1. **Header & Participant Bar**: Title, description, editable participant status, and colored avatar chips with response summaries.
+2. **Top Match Podium Strip**: Sleek gradient banner positioned directly above the calendar showing the #1 ranked vacation match with quick 1-click highlight and calendar jump.
+3. **Spacious Calendar Heatmap Grid (`#calendar-section`)**: Full-width 2-month calendar grid with generous cell sizing (`min-h-[58px] sm:min-h-[66px]`). Cells feature clean attendance fractions (`3/5`), celebration icons (`🎉`), and subtle amber dots for maybe responses, eliminating visual clutter.
+4. **Best Vacation Windows (`#windows-section`)**: Horizontal 3-column podium card grid (`grid-cols-1 md:grid-cols-3 gap-4`) displaying gold (`🥇`), silver (`🥈`), and bronze (`🥉`) windows side-by-side with full, un-truncated date ranges, duration pills, attendance breakdown, distinct unavailable/maybe chips, and 1-click highlight/lock buttons.
 
 ```mermaid
 graph TD
     App["App.tsx (State Orchestrator & Search/Hash Router)"]
     App --> Header["Header.tsx (Unified Nav, Clean Brand Bar)"]
     App --> ParticipantBar["ParticipantBar.tsx (Unified Header & Participant Pills)"]
+    App --> PodiumStrip["Top Match Podium Strip (🥇 Instant Glance Banner)"]
     
-    subgraph DesktopLayout["2-Column Split Layout"]
-        CalendarGrid["CalendarGrid.tsx (Left / Main: Heatmap & Paint Tool)"]
-        TripWindowFinder["TripWindowFinder.tsx (Right / Sticky: Ranked Windows & Duration Selector)"]
+    subgraph StackLayout["Full-Width Single-Column Stack"]
+        CalendarGrid["CalendarGrid.tsx (Big Spacious 2-Month Heatmap & Painter)"]
+        TripWindowFinder["TripWindowFinder.tsx (3-Column Horizontal Podium Cards & Duration Pills)"]
     end
-    App --> DesktopLayout
+    App --> StackLayout
     
     App --> Modal["Modal.tsx (&lt;dialog&gt; Core Wrapper)"]
     Modal -.-> CreateTripModal["CreateTripModal.tsx"]
