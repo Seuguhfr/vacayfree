@@ -445,7 +445,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                         key={dateKey}
                         onPointerDown={() => handleCellPointerDown(dateKey)}
                         onPointerEnter={() => handleCellPointerEnter(dateKey)}
-                        className={`min-h-[58px] sm:min-h-[66px] rounded-xl border flex flex-col items-center justify-between p-2 transition-all cursor-pointer calendar-cell ${bgClass} active:scale-95`}
+                        className={`min-h-[58px] sm:min-h-[66px] rounded-xl border flex flex-col items-center justify-between p-1.5 sm:p-2 transition-all cursor-pointer calendar-cell ${bgClass} active:scale-95`}
                       >
                         <div className="w-full flex items-center justify-between">
                           <span className="text-xs font-bold leading-none">
@@ -474,7 +474,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                             <MessageSquare className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider opacity-90">
+                        <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-tight sm:tracking-normal opacity-90 leading-tight text-center">
                           {status === 'available' ? t.brushFree : status === 'maybe' ? t.brushMaybe : t.brushBusy}
                         </span>
                       </div>

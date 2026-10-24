@@ -246,14 +246,14 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
             <Clock className="w-3.5 h-3.5 text-zinc-500" />
             <span>{t.targetDurationLabel}</span>
           </label>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
               type="button"
               onClick={() => {
                 setIsCustomDuration(false);
                 setDurationDays(3);
               }}
-              className={`py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+              className={`py-2 sm:py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                 !isCustomDuration && durationDays === 3
                   ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
                   : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'
@@ -267,7 +267,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 setIsCustomDuration(false);
                 setDurationDays(7);
               }}
-              className={`py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+              className={`py-2 sm:py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                 !isCustomDuration && durationDays === 7
                   ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
                   : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'
@@ -281,7 +281,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 setIsCustomDuration(false);
                 setDurationDays(14);
               }}
-              className={`py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+              className={`py-2 sm:py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                 !isCustomDuration && durationDays === 14
                   ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
                   : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'
@@ -292,7 +292,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
             <button
               type="button"
               onClick={() => setIsCustomDuration(true)}
-              className={`py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+              className={`py-2 sm:py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                 isCustomDuration
                   ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
                   : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50'
@@ -324,14 +324,14 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
             <span>{t.yourInfoLabel}</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div>
               <input
                 type="text"
                 value={creatorName}
                 onChange={(e) => setCreatorName(e.target.value)}
                 placeholder={t.yourNamePlaceholder}
-                className="w-full px-3 py-1.5 rounded-lg border border-zinc-200 bg-white text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                className="w-full px-3 py-2 rounded-xl border border-zinc-200 bg-white text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
               />
             </div>
             <div>
@@ -343,7 +343,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 value={creatorPin}
                 onChange={(e) => setCreatorPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
                 placeholder={t.pinPlaceholder}
-                className="w-full px-3 py-1.5 rounded-lg border border-zinc-200 bg-white text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                className="w-full px-3 py-2 rounded-xl border border-zinc-200 bg-white text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
               />
             </div>
           </div>
