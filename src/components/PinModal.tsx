@@ -12,7 +12,7 @@ interface PinModalProps {
   eventId: string;
   participants: Participant[];
   onSelectParticipant: (participant: Participant) => void;
-  targetParticipant?: Participant | null; // If user clicked on a specific person to verify
+  targetParticipant?: Participant | null;
 }
 
 export const PinModal: React.FC<PinModalProps> = ({
@@ -30,7 +30,6 @@ export const PinModal: React.FC<PinModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Synchronize when targetParticipant changes
   React.useEffect(() => {
     if (targetParticipant) {
       setMode('login');
@@ -43,7 +42,7 @@ export const PinModal: React.FC<PinModalProps> = ({
     setError(null);
 
     if (pin.trim().length < 4) {
-      setError('Please enter at least a 4-digit PIN.');
+      setError('Please enter your 4-digit PIN.');
       return;
     }
 
@@ -58,12 +57,15 @@ export const PinModal: React.FC<PinModalProps> = ({
           return;
         }
 
-        // Check if name is already taken
+        // Smart name collision detection:
         const existing = participants.find(
           p => p.name.trim().toLowerCase() === name.trim().toLowerCase()
         );
         if (existing) {
-          setError(`A participant named "${existing.name}" already exists. Please choose another name or unlock your existing response.`);
+          // Switch to login tab seamlessly for them!
+          setSelectedId(existing.id);
+          setMode('login');
+          setError(`"${existing.name}" is already on this trip! Enter your 4-digit PIN below to unlock your dates.`);
           setIsSubmitting(false);
           return;
         }
@@ -77,7 +79,6 @@ export const PinModal: React.FC<PinModalProps> = ({
           createdAt: new Date().toISOString(),
         };
 
-        // Persist session
         StorageService.saveParticipantSession(eventId, newParticipant.id, pin.trim());
         onSelectParticipant(newParticipant);
         onClose();
@@ -91,7 +92,7 @@ export const PinModal: React.FC<PinModalProps> = ({
         }
 
         if (p.pinHash !== pinHash) {
-          setError('Incorrect PIN. Please try again.');
+          setError('Incorrect PIN. If you forgot your PIN, ask the trip organizer to click "Reset PIN" for you.');
           setIsSubmitting(false);
           return;
         }
@@ -113,16 +114,16 @@ export const PinModal: React.FC<PinModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={mode === 'create' ? 'Join Vacation Poll' : 'Unlock Your Response'}
+      title={mode === 'create' ? 'Add Your Availability' : 'Edit Your Dates'}
       maxWidthClass="max-w-sm"
     >
       {/* Switch between New and Returning */}
       {participants.length > 0 && !targetParticipant && (
-        <div className="flex rounded-xl bg-zinc-100 p-1 mb-5">
+        <div className="flex rounded-xl bg-zinc-100 p-1 mb-4">
           <button
             type="button"
             onClick={() => { setMode('create'); setError(null); }}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
               mode === 'create'
                 ? 'bg-white text-zinc-900 shadow-xs'
                 : 'text-zinc-600 hover:text-zinc-900'
@@ -133,7 +134,7 @@ export const PinModal: React.FC<PinModalProps> = ({
           <button
             type="button"
             onClick={() => { setMode('login'); setError(null); }}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
               mode === 'login'
                 ? 'bg-white text-zinc-900 shadow-xs'
                 : 'text-zinc-600 hover:text-zinc-900'
@@ -144,7 +145,7 @@ export const PinModal: React.FC<PinModalProps> = ({
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-3.5">
         {error && (
           <div className="p-2.5 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg">
             {error}
@@ -162,8 +163,8 @@ export const PinModal: React.FC<PinModalProps> = ({
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Alex, Sam, etc."
-              className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+              placeholder="e.g. Alex, Sam, Taylor"
+              className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
             />
           </div>
         ) : (
@@ -174,7 +175,7 @@ export const PinModal: React.FC<PinModalProps> = ({
             <select
               value={selectedId}
               onChange={(e) => setSelectedId(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white"
+              className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white"
             >
               {participants.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -185,10 +186,11 @@ export const PinModal: React.FC<PinModalProps> = ({
           </div>
         )}
 
+        {/* Clean, consistent left-aligned PIN input */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1 flex items-center justify-between">
-            <span>{mode === 'create' ? 'Set a 4-digit PIN' : 'Enter your 4-digit PIN'}</span>
-            <Lock className="w-3 h-3 text-zinc-400" />
+            <span>{mode === 'create' ? 'Set a 4-Digit PIN' : 'Enter 4-Digit PIN'}</span>
+            <Lock className="w-3.5 h-3.5 text-zinc-400" />
           </label>
           <input
             type="password"
@@ -196,12 +198,12 @@ export const PinModal: React.FC<PinModalProps> = ({
             maxLength={8}
             value={pin}
             onChange={(e) => setPin(e.target.value)}
-            placeholder="e.g. 1234"
-            className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-sm font-mono tracking-widest text-center focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+            placeholder="4-digit PIN (e.g. 1234)"
+            className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-left focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
           />
           <p className="text-[11px] text-zinc-500 mt-1">
             {mode === 'create'
-              ? 'This PIN protects your choices so you can edit them later.'
+              ? 'Protects your choices so only you can edit them later.'
               : 'Enter the PIN you chose when first adding your dates.'}
           </p>
         </div>
@@ -210,7 +212,7 @@ export const PinModal: React.FC<PinModalProps> = ({
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer shadow-xs"
+            className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer shadow-xs"
           >
             {mode === 'create' ? (
               <>
@@ -220,7 +222,7 @@ export const PinModal: React.FC<PinModalProps> = ({
             ) : (
               <>
                 <KeyRound className="w-4 h-4" />
-                <span>Unlock & Edit</span>
+                <span>Unlock & Edit Dates</span>
               </>
             )}
           </button>

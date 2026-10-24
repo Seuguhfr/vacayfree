@@ -23,6 +23,7 @@ import {
   HelpCircle,
   XCircle,
   RotateCcw,
+  Info,
 } from 'lucide-react';
 
 interface CalendarGridProps {
@@ -136,7 +137,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
 
   return (
     <div
-      className="space-y-6"
+      className="space-y-5"
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
     >
@@ -191,14 +192,14 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
             <button
               type="button"
               onClick={() => handleQuickFill('available')}
-              className="text-[11px] font-medium text-zinc-600 hover:text-zinc-900 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors"
+              className="text-[11px] font-medium text-zinc-600 hover:text-zinc-900 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
             >
               All Free
             </button>
             <button
               type="button"
               onClick={() => handleQuickFill('busy')}
-              className="text-[11px] font-medium text-zinc-600 hover:text-zinc-900 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors"
+              className="text-[11px] font-medium text-zinc-600 hover:text-zinc-900 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
             >
               All Busy
             </button>
@@ -206,7 +207,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
               <button
                 type="button"
                 onClick={handleReset}
-                className="text-[11px] font-medium text-zinc-500 hover:text-zinc-800 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors flex items-center gap-1"
+                className="text-[11px] font-medium text-zinc-500 hover:text-zinc-800 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <RotateCcw className="w-3 h-3" />
                 Reset
@@ -228,35 +229,36 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
         </div>
       )}
 
-      {/* Heatmap Legend (when in view mode) */}
+      {/* Heatmap Legend (view mode) with high-contrast text */}
       {!isPaintMode && (
-        <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-zinc-600">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-zinc-600">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-zinc-700 text-xs">Heatmap Legend:</span>
+            <span className="font-semibold text-zinc-800 text-xs">Heatmap:</span>
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-sm bg-zinc-100 border border-zinc-200" title="0% free" />
-              <span className="text-[11px] text-zinc-400">0%</span>
-              <span className="w-3 h-3 rounded-sm bg-emerald-100 border border-emerald-200" title="25-50% free" />
-              <span className="w-3 h-3 rounded-sm bg-emerald-300 border border-emerald-400" title="50-75% free" />
-              <span className="w-3 h-3 rounded-sm bg-emerald-500" title="75-99% free" />
+              <span className="w-3 h-3 rounded-sm bg-zinc-100 border border-zinc-200" title="0 friends free" />
+              <span className="text-[11px] text-zinc-500">None</span>
+              <span className="w-3 h-3 rounded-sm bg-emerald-100 border border-emerald-200" title="Few free" />
+              <span className="w-3 h-3 rounded-sm bg-emerald-300 border border-emerald-400" title="Most free" />
+              <span className="w-3 h-3 rounded-sm bg-emerald-500" title="Nearly all free" />
               <span className="w-3 h-3 rounded-sm bg-emerald-600 ring-1 ring-emerald-400" title="100% all friends free!" />
-              <span className="text-[11px] font-bold text-emerald-700">100%</span>
+              <span className="text-[11px] font-bold text-emerald-800">All</span>
             </div>
           </div>
-          <p className="text-[11px] text-zinc-400">
-            Click any day to see who is free and read notes
+          <p className="text-xs font-medium text-zinc-600 flex items-center gap-1">
+            <Info className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+            <span>Click any day to see detailed friend availability and notes</span>
           </p>
         </div>
       )}
 
       {/* Calendar Months Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {months.map((monthDate) => {
           const monthStart = startOfMonth(monthDate);
           const monthEnd = endOfMonth(monthDate);
           const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-          // Day of week offset for Monday start (0: Sun -> offset 6, 1: Mon -> offset 0)
+          // Day of week offset for Monday start
           const startDayOfWeek = (getDay(monthStart) + 6) % 7;
           const leadingBlanks = Array.from({ length: startDayOfWeek });
 
@@ -266,14 +268,14 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
               className="bg-white rounded-2xl border border-zinc-200/80 p-4 sm:p-5 shadow-xs"
             >
               {/* Month Header */}
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-3">
                 <h3 className="font-bold text-base text-zinc-900 tracking-tight">
                   {format(monthDate, 'MMMM yyyy')}
                 </h3>
               </div>
 
               {/* Weekday Row */}
-              <div className="grid grid-cols-7 gap-1.5 sm:gap-2 mb-2 text-center">
+              <div className="grid grid-cols-7 gap-1.5 mb-2 text-center">
                 {WEEKDAYS.map((wd) => (
                   <span
                     key={wd}
@@ -285,9 +287,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
               </div>
 
               {/* Days Grid */}
-              <div className="grid grid-cols-7 gap-1.5 sm:gap-2 select-none">
+              <div className="grid grid-cols-7 gap-1.5 select-none">
                 {leadingBlanks.map((_, i) => (
-                  <div key={`blank-${i}`} className="h-12 sm:h-14 rounded-xl" />
+                  <div key={`blank-${i}`} className="h-11 sm:h-12 rounded-xl" />
                 ))}
 
                 {daysInMonth.map((dayObj) => {
@@ -302,7 +304,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                     return (
                       <div
                         key={dateKey}
-                        className="h-12 sm:h-14 rounded-xl flex items-center justify-center text-xs text-zinc-300 font-medium cursor-not-allowed bg-zinc-50/50"
+                        className="h-11 sm:h-12 rounded-xl flex items-center justify-center text-xs text-zinc-300 font-medium cursor-not-allowed bg-zinc-50/50"
                       >
                         {format(dayObj, 'd')}
                       </div>
@@ -329,7 +331,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                         key={dateKey}
                         onPointerDown={() => handleCellPointerDown(dateKey)}
                         onPointerEnter={() => handleCellPointerEnter(dateKey)}
-                        className={`h-12 sm:h-14 rounded-xl border flex flex-col items-center justify-between p-1.5 transition-all cursor-pointer calendar-cell ${bgClass} active:scale-95`}
+                        className={`h-11 sm:h-12 rounded-xl border flex flex-col items-center justify-between p-1.5 transition-all cursor-pointer calendar-cell ${bgClass} active:scale-95`}
                       >
                         <div className="w-full flex items-center justify-between">
                           <span className="text-xs font-bold leading-none">
@@ -360,23 +362,24 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                     );
                   }
 
-                  // HEATMAP VIEW MODE
-                  const percentage = daySummary ? daySummary.percentage : 0;
+                  // HEATMAP VIEW MODE: Clean, decluttered, no conflicting percentages!
                   const availableCount = daySummary ? daySummary.availableCount : 0;
+                  const maybeCount = daySummary ? daySummary.maybeCount : 0;
                   const total = daySummary ? daySummary.totalParticipants : 0;
                   const hasNotes = daySummary && daySummary.notes.length > 0;
                   const is100Percent = total > 0 && availableCount === total;
 
+                  // Color gradient strictly based on attendance
                   let cellColor = 'bg-zinc-50 text-zinc-700 border-zinc-200/70 hover:bg-zinc-100';
                   if (total > 0) {
                     if (is100Percent) {
-                      cellColor = 'bg-emerald-600 text-white border-emerald-600 font-black shadow-xs';
-                    } else if (percentage >= 75) {
-                      cellColor = 'bg-emerald-500 text-white border-emerald-500 font-bold';
-                    } else if (percentage >= 50) {
-                      cellColor = 'bg-emerald-200 text-emerald-950 border-emerald-300 font-semibold';
-                    } else if (percentage > 0) {
-                      cellColor = 'bg-emerald-50 text-emerald-900 border-emerald-200/80 font-medium';
+                      cellColor = 'bg-emerald-600 text-white border-emerald-600 font-bold shadow-xs';
+                    } else if (availableCount >= Math.ceil(total * 0.7)) {
+                      cellColor = 'bg-emerald-500 text-white border-emerald-500 font-semibold';
+                    } else if (availableCount >= Math.ceil(total * 0.4) || (availableCount > 0 && maybeCount > 0)) {
+                      cellColor = 'bg-emerald-200 text-emerald-950 border-emerald-300 font-medium';
+                    } else if (availableCount > 0 || maybeCount > 0) {
+                      cellColor = 'bg-emerald-50 text-emerald-900 border-emerald-200/80';
                     } else {
                       cellColor = 'bg-zinc-100 text-zinc-500 border-zinc-200';
                     }
@@ -387,9 +390,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                       key={dateKey}
                       type="button"
                       onClick={() => daySummary && onSelectDayDetails(daySummary)}
-                      className={`h-12 sm:h-14 rounded-xl border flex flex-col items-center justify-between p-1.5 transition-all text-left cursor-pointer calendar-cell ${cellColor} ${
+                      className={`h-11 sm:h-12 rounded-xl border flex flex-col items-center justify-between p-1.5 transition-all text-left cursor-pointer calendar-cell ${cellColor} ${
                         isInSelectedWindow
-                          ? 'ring-3 ring-indigo-500 ring-offset-2 scale-[1.03] z-10'
+                          ? 'ring-3 ring-indigo-500 ring-offset-1 scale-[1.03] z-10'
                           : 'hover:scale-[1.02]'
                       }`}
                     >
@@ -405,13 +408,17 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                         )}
                       </div>
 
-                      <div className="w-full flex items-center justify-between text-[10px]">
-                        <span className="font-semibold opacity-90">
+                      {/* Clean fraction + maybe indicator dot (No confusing %!) */}
+                      <div className="w-full flex items-center justify-between text-[11px] leading-tight">
+                        <span className="font-bold">
                           {total > 0 ? `${availableCount}/${total}` : '-'}
                         </span>
-                        {total > 0 && (
-                          <span className="text-[9px] opacity-75 font-mono">
-                            {percentage}%
+                        {maybeCount > 0 && !is100Percent && (
+                          <span
+                            className="text-[9px] font-semibold px-1 rounded-sm bg-amber-400/30 text-amber-950"
+                            title={`${maybeCount} friend(s) marked maybe`}
+                          >
+                            +{maybeCount}m
                           </span>
                         )}
                       </div>

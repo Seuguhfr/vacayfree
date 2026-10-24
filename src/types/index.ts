@@ -73,4 +73,9 @@ export interface TripWindow {
     name: string;
     daysUnavailable: number;
   }>;
+  maybeParticipants?: Array<{
+    id: string;
+    name: string;
+    daysMaybe: number;
+  }>;
 }

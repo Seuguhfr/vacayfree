@@ -3,7 +3,7 @@ import { Modal } from './ui/Modal';
 import { TripEvent, Participant } from '../types';
 import { hashString } from '../utils/security';
 import { StorageService } from '../services/storage';
-import { ShieldCheck, Lock, Unlock, Trash2, KeyRound } from 'lucide-react';
+import { ShieldCheck, Lock, Unlock, Trash2, KeyRound, Copy, Check } from 'lucide-react';
 
 interface AdminModalProps {
   isOpen: boolean;
@@ -11,6 +11,7 @@ interface AdminModalProps {
   event: TripEvent;
   participants: Participant[];
   isAdmin: boolean;
+  adminKey: string | null;
   onVerifyAdmin: (adminKey: string) => Promise<boolean>;
   onUpdateEvent: (updated: Partial<TripEvent>) => void;
   onDeleteParticipant: (participantId: string) => void;
@@ -22,6 +23,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   event,
   participants,
   isAdmin,
+  adminKey,
   onVerifyAdmin,
   onUpdateEvent,
   onDeleteParticipant,
@@ -37,6 +39,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [endDate, setEndDate] = useState(event.endDate);
   const [isLocked, setIsLocked] = useState(event.isLocked);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [copiedAdminUrl, setCopiedAdminUrl] = useState(false);
+  const [pinResetNotice, setPinResetNotice] = useState<{ name: string; tempPin: string } | null>(null);
+
+  // Organizer Admin URL
+  const baseUrl = window.location.origin + window.location.pathname;
+  const adminUrl = adminKey ? `${baseUrl}?event=${event.id}&admin=${adminKey}` : null;
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,6 +55,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     if (!valid) {
       setKeyError('Invalid organizer key.');
     }
+  };
+
+  const handleToggleLock = () => {
+    const nextLocked = !isLocked;
+    setIsLocked(nextLocked);
+    onUpdateEvent({ isLocked: nextLocked });
   };
 
   const handleSaveChanges = (e: React.FormEvent) => {
@@ -63,17 +77,18 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   };
 
   const handleResetPin = async (p: Participant) => {
-    const defaultPin = '1234';
-    const pinHash = await hashString(defaultPin);
-    // Update participant pinHash
+    // Generate a fresh clean 4-digit PIN
+    const tempPin = Math.floor(1000 + Math.random() * 9000).toString();
+    const pinHash = await hashString(tempPin);
+
     const data = StorageService.getEvent(event.id);
     if (data) {
       data.participants = data.participants.map(part =>
         part.id === p.id ? { ...part, pinHash } : part
       );
       StorageService.saveEvent(data);
-      alert(`PIN for ${p.name} has been reset to "1234"`);
     }
+    setPinResetNotice({ name: p.name, tempPin });
   };
 
   return (
@@ -117,18 +132,68 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           </div>
         </form>
       ) : (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
-            <span className="flex items-center gap-1.5 font-medium">
-              <ShieldCheck className="w-4 h-4 text-amber-700" />
-              Organizer mode unlocked
-            </span>
-            <span className="text-[11px] text-amber-800 font-mono">
-              Event ID: {event.id}
-            </span>
-          </div>
+        <div className="space-y-5">
+          {/* Organizer Key Card (Kept safe from share modal) */}
+          {adminUrl && (
+            <div className="p-3.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-950 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold flex items-center gap-1.5 text-amber-900">
+                  <ShieldCheck className="w-4 h-4 text-amber-700" />
+                  Your Secret Organizer Link
+                </span>
+                <span className="text-[10px] text-amber-700 font-mono">Private</span>
+              </div>
+              <p className="text-[11px] text-amber-800 leading-tight">
+                Bookmark this link to maintain admin access. Do not share this in the group chat!
+              </p>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="text"
+                  readOnly
+                  value={adminUrl}
+                  className="flex-1 px-2.5 py-1.5 rounded-lg border border-amber-300/80 bg-white text-xs font-mono select-all focus:outline-none text-zinc-800"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(adminUrl);
+                    setCopiedAdminUrl(true);
+                    setTimeout(() => setCopiedAdminUrl(false), 2000);
+                  }}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-700 text-white hover:bg-amber-800 cursor-pointer"
+                >
+                  {copiedAdminUrl ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedAdminUrl ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+            </div>
+          )}
 
-          <form onSubmit={handleSaveChanges} className="space-y-4">
+          {/* Temporary PIN Reset Notification */}
+          {pinResetNotice && (
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold block">
+                  PIN for {pinResetNotice.name} reset to: <span className="font-mono text-sm underline">{pinResetNotice.tempPin}</span>
+                </span>
+                <span className="text-[11px] text-emerald-700">Text this 4-digit code to your friend.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(pinResetNotice.tempPin);
+                  alert(`Copied PIN "${pinResetNotice.tempPin}" to clipboard!`);
+                  setPinResetNotice(null);
+                }}
+                className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700"
+              >
+                Copy PIN
+              </button>
+            </div>
+          )}
+
+          {/* Trip Settings Form */}
+          <form onSubmit={handleSaveChanges} className="space-y-3.5">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">
                 Trip Title
@@ -137,7 +202,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                className="w-full px-3 py-1.5 rounded-xl border border-zinc-200 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
               />
             </div>
 
@@ -149,13 +214,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                className="w-full px-3 py-1.5 rounded-xl border border-zinc-200 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-medium text-zinc-500 mb-1">
+                <label className="block text-[11px] font-medium text-zinc-500 mb-0.5">
                   Start Date
                 </label>
                 <input
@@ -166,7 +231,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-medium text-zinc-500 mb-1">
+                <label className="block text-[11px] font-medium text-zinc-500 mb-0.5">
                   End Date
                 </label>
                 <input
@@ -178,33 +243,33 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               </div>
             </div>
 
-            {/* Lock Poll Toggle */}
+            {/* Instant Lock Poll Toggle */}
             <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200/80">
               <div>
                 <div className="text-xs font-semibold text-zinc-800 flex items-center gap-1.5">
                   {isLocked ? <Lock className="w-3.5 h-3.5 text-rose-600" /> : <Unlock className="w-3.5 h-3.5 text-emerald-600" />}
-                  <span>{isLocked ? 'Poll is Locked' : 'Poll is Open'}</span>
+                  <span>{isLocked ? 'Poll is Locked' : 'Poll is Open for responses'}</span>
                 </div>
                 <p className="text-[11px] text-zinc-500">
-                  {isLocked ? 'Nobody can edit availability now.' : 'Friends can freely mark and update dates.'}
+                  {isLocked ? 'Friends cannot edit their dates while locked.' : 'Friends can freely mark and update dates.'}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setIsLocked(!isLocked)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+                onClick={handleToggleLock}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
                   isLocked
-                    ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-                    : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                    ? 'bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100'
+                    : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
                 }`}
               >
-                {isLocked ? 'Unlock' : 'Lock Poll'}
+                {isLocked ? 'Unlock Poll' : 'Lock Poll'}
               </button>
             </div>
 
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-xs text-emerald-600 font-medium">
-                {saveSuccess ? 'Changes saved!' : ''}
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-xs text-emerald-600 font-semibold">
+                {saveSuccess ? '✓ Settings updated!' : ''}
               </span>
               <button
                 type="submit"
@@ -215,17 +280,20 @@ export const AdminModal: React.FC<AdminModalProps> = ({
             </div>
           </form>
 
-          {/* Manage Participants */}
-          <div className="pt-4 border-t border-zinc-100">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-2">
-              Manage Participants ({participants.length})
-            </h3>
-            <div className="divide-y divide-zinc-100 max-h-48 overflow-y-auto rounded-xl border border-zinc-200 bg-white">
+          {/* Manage Participants with visible scroll and count */}
+          <div className="pt-3 border-t border-zinc-100">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-600">
+                Manage Participants ({participants.length})
+              </h3>
+              <span className="text-[10px] text-zinc-400">Scrollable list</span>
+            </div>
+            <div className="divide-y divide-zinc-100 max-h-56 overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-inner">
               {participants.length === 0 ? (
                 <p className="p-3 text-xs text-zinc-400 text-center">No participants yet</p>
               ) : (
                 participants.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between p-2.5">
+                  <div key={p.id} className="flex items-center justify-between p-2.5 hover:bg-zinc-50/50">
                     <div className="flex items-center gap-2">
                       <span className={`w-3 h-3 rounded-full ${p.color}`} />
                       <span className="text-xs font-medium text-zinc-800">{p.name}</span>
@@ -234,11 +302,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       <button
                         type="button"
                         onClick={() => handleResetPin(p)}
-                        title="Reset PIN to 1234"
-                        className="p-1 rounded-md text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors text-[11px] flex items-center gap-1 cursor-pointer"
+                        title="Generate temporary PIN"
+                        className="px-2 py-1 rounded-md text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors text-[11px] flex items-center gap-1 border border-zinc-200 cursor-pointer"
                       >
-                        <KeyRound className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Reset PIN</span>
+                        <KeyRound className="w-3 h-3" />
+                        <span>Reset PIN</span>
                       </button>
                       <button
                         type="button"

@@ -6,12 +6,12 @@ import {
   Trophy,
   Sparkles,
   CheckCircle,
-  AlertCircle,
   Eye,
-  PartyPopper,
-  Flame,
   CalendarCheck2,
   Sliders,
+  Check,
+  XCircle,
+  HelpCircle,
 } from 'lucide-react';
 
 interface TripWindowFinderProps {
@@ -21,6 +21,8 @@ interface TripWindowFinderProps {
   targetDuration: number;
   onChangeDuration: (days: number) => void;
   participants: Participant[];
+  isAdmin: boolean;
+  onFinalizeDate?: (win: TripWindow) => void;
 }
 
 export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
@@ -30,6 +32,8 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
   targetDuration,
   onChangeDuration,
   participants,
+  isAdmin,
+  onFinalizeDate,
 }) => {
   const [showAll, setShowAll] = useState(false);
   const [isCustom, setIsCustom] = useState(![3, 7, 14].includes(targetDuration));
@@ -46,6 +50,9 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
       });
     } catch {
       // ignore
+    }
+    if (onFinalizeDate) {
+      onFinalizeDate(w);
     }
   };
 
@@ -68,33 +75,33 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
     onChangeDuration(next);
   };
 
-  const topWindows = showAll ? windows.slice(0, 10) : windows.slice(0, 3);
+  const topWindows = showAll ? windows.slice(0, 8) : windows.slice(0, 3);
   const fullAttendanceCount = windows.filter(w => w.fullAttendance).length;
 
   return (
-    <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 sm:p-6 shadow-xs space-y-6">
+    <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 sm:p-5 shadow-xs space-y-4">
       {/* Header & Duration picker */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-zinc-100">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-100">
         <div>
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700">
-              <Trophy className="w-5 h-5 stroke-[2.2]" />
+            <div className="p-1 rounded-lg bg-emerald-50 text-emerald-700">
+              <Trophy className="w-4 h-4 stroke-[2.2]" />
             </div>
-            <h2 className="text-lg font-bold text-zinc-900 tracking-tight">
+            <h2 className="text-base font-bold text-zinc-900 tracking-tight">
               Best Vacation Windows
             </h2>
           </div>
-          <p className="text-xs text-zinc-500 mt-1">
-            Continuous date ranges ranked by maximum friend attendance
+          <p className="text-xs text-zinc-500 mt-0.5">
+            Continuous date stretches ranked by friend attendance
           </p>
         </div>
 
-        {/* Duration Pills: Weekend (3d), Week (7d), 2 Weeks (14d), Custom */}
+        {/* Duration Pills: Weekend (3d), 1 Week (7d), 2 Weeks (14d), Custom */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
           <button
             type="button"
             onClick={() => handleSelectPreset(3)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
+            className={`px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
               !isCustom && targetDuration === 3
                 ? 'bg-zinc-900 text-white border-zinc-900 shadow-xs'
                 : 'bg-zinc-50 text-zinc-700 border-zinc-200/70 hover:bg-zinc-100'
@@ -106,7 +113,7 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
           <button
             type="button"
             onClick={() => handleSelectPreset(7)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
+            className={`px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
               !isCustom && targetDuration === 7
                 ? 'bg-zinc-900 text-white border-zinc-900 shadow-xs'
                 : 'bg-zinc-50 text-zinc-700 border-zinc-200/70 hover:bg-zinc-100'
@@ -118,7 +125,7 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
           <button
             type="button"
             onClick={() => handleSelectPreset(14)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
+            className={`px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
               !isCustom && targetDuration === 14
                 ? 'bg-zinc-900 text-white border-zinc-900 shadow-xs'
                 : 'bg-zinc-50 text-zinc-700 border-zinc-200/70 hover:bg-zinc-100'
@@ -133,47 +140,47 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
               setIsCustom(true);
               onChangeDuration(customDays);
             }}
-            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
               isCustom
                 ? 'bg-zinc-900 text-white border-zinc-900 shadow-xs'
                 : 'bg-zinc-50 text-zinc-700 border-zinc-200/70 hover:bg-zinc-100'
             }`}
           >
-            <Sliders className="w-3.5 h-3.5" />
+            <Sliders className="w-3 h-3" />
             <span>Custom{isCustom ? ` (${targetDuration}d)` : ''}</span>
           </button>
         </div>
       </div>
 
-      {/* Custom Duration Input Bar when Custom is active */}
+      {/* Custom Duration Input Bar */}
       {isCustom && (
-        <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200/80">
+        <div className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-50 border border-zinc-200/80">
           <span className="text-xs font-semibold text-zinc-700">
-            Set custom trip length:
+            Set custom length:
           </span>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => handleCustomStep(-1)}
-              className="w-7 h-7 rounded-lg bg-white border border-zinc-300 text-zinc-700 font-bold hover:bg-zinc-100 flex items-center justify-center cursor-pointer text-sm"
+              className="w-6 h-6 rounded-lg bg-white border border-zinc-300 text-zinc-700 font-bold hover:bg-zinc-100 flex items-center justify-center cursor-pointer text-xs"
             >
               -
             </button>
-            <div className="flex items-center gap-1 bg-white px-3 py-1 rounded-lg border border-zinc-300">
+            <div className="flex items-center gap-1 bg-white px-2.5 py-0.5 rounded-lg border border-zinc-300">
               <input
                 type="number"
                 min={1}
                 max={60}
                 value={customDays}
                 onChange={handleCustomChange}
-                className="w-10 text-center font-bold text-xs text-zinc-900 focus:outline-none"
+                className="w-8 text-center font-bold text-xs text-zinc-900 focus:outline-none"
               />
-              <span className="text-xs text-zinc-500 font-medium">days</span>
+              <span className="text-[11px] text-zinc-500 font-medium">days</span>
             </div>
             <button
               type="button"
               onClick={() => handleCustomStep(1)}
-              className="w-7 h-7 rounded-lg bg-white border border-zinc-300 text-zinc-700 font-bold hover:bg-zinc-100 flex items-center justify-center cursor-pointer text-sm"
+              className="w-6 h-6 rounded-lg bg-white border border-zinc-300 text-zinc-700 font-bold hover:bg-zinc-100 flex items-center justify-center cursor-pointer text-xs"
             >
               +
             </button>
@@ -181,35 +188,30 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
         </div>
       )}
 
-      {/* Stats summary badge */}
+      {/* Status summary */}
       {totalFriends > 0 && windows.length > 0 && (
-        <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 border border-zinc-200/70 text-xs text-zinc-600">
-          <span className="flex items-center gap-1.5 font-medium">
-            <Flame className="w-4 h-4 text-amber-500" />
-            <span>Found <strong>{windows.length}</strong> possible {targetDuration}-day trip windows</span>
-          </span>
+        <div className="flex items-center justify-between text-xs text-zinc-600 px-1">
+          <span>{windows.length} possible {targetDuration}-day windows</span>
           {fullAttendanceCount > 0 ? (
-            <span className="text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-              <Sparkles className="w-3 h-3" />
-              {fullAttendanceCount} with 100% attendance!
+            <span className="text-emerald-800 font-semibold flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-amber-500" />
+              {fullAttendanceCount} with 100% attendance
             </span>
           ) : (
-            <span className="text-zinc-500 text-[11px]">
-              No window with 100% attendance yet
-            </span>
+            <span className="text-zinc-500 text-[11px]">Best available matches</span>
           )}
         </div>
       )}
 
       {/* Ranked Windows List */}
       {windows.length === 0 ? (
-        <div className="text-center py-8 text-zinc-400 text-xs space-y-1">
-          <CalendarCheck2 className="w-8 h-8 mx-auto text-zinc-300 stroke-[1.5]" />
+        <div className="text-center py-6 text-zinc-400 text-xs space-y-1">
+          <CalendarCheck2 className="w-6 h-6 mx-auto text-zinc-300 stroke-[1.5]" />
           <p className="font-semibold text-zinc-600">No windows found for {targetDuration} days.</p>
-          <p>Try reducing the trip duration or check that the date range is at least {targetDuration} days.</p>
+          <p>Try reducing the trip duration.</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {topWindows.map((win, idx) => {
             const isSelected =
               selectedWindow &&
@@ -224,40 +226,40 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
               <div
                 key={`${win.startDate}-${win.endDate}`}
                 onClick={() => onSelectWindow(win)}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                className={`p-3 sm:p-3.5 rounded-xl border transition-all cursor-pointer ${
                   isSelected
-                    ? 'border-indigo-500 bg-indigo-50/30 ring-2 ring-indigo-500/20 shadow-sm'
-                    : 'border-zinc-200/90 bg-white hover:border-zinc-300 hover:shadow-xs'
+                    ? 'border-indigo-500 bg-indigo-50/30 ring-2 ring-indigo-500/20 shadow-xs'
+                    : 'border-zinc-200/90 bg-white hover:border-zinc-300'
                 }`}
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   {/* Left: Medal + Dates */}
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl select-none">
+                  <div className="flex items-start gap-2.5">
+                    <span className="text-xl select-none leading-none mt-0.5">
                       {isGold ? '🥇' : isSilver ? '🥈' : isBronze ? '🥉' : `#${idx + 1}`}
                     </span>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-base font-bold text-zinc-900 tracking-tight">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className="text-sm font-bold text-zinc-900 tracking-tight">
                           {formatWindowRange(win.startDate, win.endDate)}
                         </h4>
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-600">
-                          {win.durationDays} days
+                        <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-600">
+                          {win.durationDays}d
                         </span>
                       </div>
 
-                      {/* Attendance badge */}
-                      <div className="flex items-center gap-2 mt-1">
+                      {/* Attendance breakdown */}
+                      <div className="mt-1">
                         {win.fullAttendance ? (
                           <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
                             <CheckCircle className="w-3.5 h-3.5 stroke-[2.5]" />
-                            100% Attendance ({totalFriends}/{totalFriends} free every day)
+                            100% Free ({totalFriends}/{totalFriends} available every day)
                           </span>
                         ) : (
-                          <span className="text-xs font-semibold text-zinc-700 flex items-center gap-1">
-                            <span>{win.attendancePercentage}% match</span>
-                            <span className="text-zinc-400 font-normal">
-                              (Min {win.minAvailable} friends free on any day)
+                          <span className="text-xs font-semibold text-zinc-700 flex items-center gap-1.5">
+                            <span>Avg {Math.round(win.averageScore * totalFriends * 10) / 10}/{totalFriends} free</span>
+                            <span className="text-zinc-400 font-normal text-[11px]">
+                              (Worst day: {win.minAvailable} free)
                             </span>
                           </span>
                         )}
@@ -265,52 +267,64 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
                     </div>
                   </div>
 
-                  {/* Right Actions */}
-                  <div className="flex items-center gap-2 self-end sm:self-center">
+                  {/* Right Actions: Eye Highlight always available; Organizer gets Finalize */}
+                  <div className="flex items-center gap-1.5 self-end sm:self-center">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         onSelectWindow(isSelected ? null : win);
                       }}
-                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
                         isSelected
                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                           : 'bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100'
                       }`}
                     >
                       <Eye className="w-3.5 h-3.5" />
-                      <span>{isSelected ? 'Highlighted' : 'Highlight'}</span>
+                      <span>{isSelected ? 'Viewing' : 'Highlight'}</span>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        triggerCelebration(win);
-                      }}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition-all cursor-pointer shadow-xs"
-                      title="Celebrate & Pick this window"
-                    >
-                      <PartyPopper className="w-3.5 h-3.5" />
-                      <span>Pick This</span>
-                    </button>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          triggerCelebration(win);
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 transition-colors cursor-pointer"
+                        title="Choose and lock this date (Organizer)"
+                      >
+                        <Check className="w-3 h-3 text-amber-700 stroke-[2.5]" />
+                        <span>Lock Date</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                {/* Who is missing / unavailable badges */}
-                {win.unvailableParticipants.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-zinc-100 flex flex-wrap items-center gap-2 text-xs">
-                    <span className="text-[11px] font-medium text-zinc-400 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3 text-amber-500" />
-                      Missing or Maybe:
-                    </span>
-                    {win.unvailableParticipants.map(u => (
+                {/* DISTINCT BADGES: Unavailable (Red) vs Maybe (Yellow) */}
+                {((win.unvailableParticipants && win.unvailableParticipants.length > 0) ||
+                  (win.maybeParticipants && win.maybeParticipants.length > 0)) && (
+                  <div className="mt-2.5 pt-2 border-t border-zinc-100 flex flex-wrap items-center gap-1.5 text-xs">
+                    {win.unvailableParticipants && win.unvailableParticipants.map(u => (
                       <span
-                        key={u.id}
-                        className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200/60"
+                        key={`unavail-${u.id}`}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200/70"
+                        title={`${u.name} is unavailable for ${u.daysUnavailable} day(s)`}
                       >
-                        {u.name} ({u.daysUnavailable}d)
+                        <XCircle className="w-3 h-3 text-rose-500" />
+                        <span>{u.name} ({u.daysUnavailable}d busy)</span>
+                      </span>
+                    ))}
+
+                    {win.maybeParticipants && win.maybeParticipants.map(m => (
+                      <span
+                        key={`maybe-${m.id}`}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200/70"
+                        title={`${m.name} marked maybe for ${m.daysMaybe} day(s)`}
+                      >
+                        <HelpCircle className="w-3 h-3 text-amber-600" />
+                        <span>{m.name} ({m.daysMaybe}d maybe)</span>
                       </span>
                     ))}
                   </div>
@@ -320,13 +334,13 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
           })}
 
           {windows.length > 3 && (
-            <div className="text-center pt-2">
+            <div className="text-center pt-1">
               <button
                 type="button"
                 onClick={() => setShowAll(!showAll)}
-                className="text-xs font-semibold text-zinc-600 hover:text-zinc-900 px-4 py-1.5 rounded-xl hover:bg-zinc-100 transition-colors cursor-pointer"
+                className="text-xs font-semibold text-zinc-600 hover:text-zinc-900 px-3 py-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
               >
-                {showAll ? 'Show top 3 only' : `Show more options (${windows.length} total)`}
+                {showAll ? 'Show top 3 only' : `Show all ${windows.length} windows`}
               </button>
             </div>
           )}

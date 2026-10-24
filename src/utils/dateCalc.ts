@@ -50,7 +50,6 @@ export function calculateDaySummaries(
   const summaries: Record<string, DaySummary> = {};
   const total = participants.length;
 
-  // Map participantId -> record of date -> DayAvailability
   const responseMap = new Map(responses.map(r => [r.participantId, r.availability]));
 
   for (const dateObj of dates) {
@@ -64,7 +63,7 @@ export function calculateDaySummaries(
     for (const p of participants) {
       const pAvailMap = responseMap.get(p.id);
       const dayAvail = pAvailMap?.[dateKey];
-      const status: AvailabilityStatus = dayAvail?.status || 'busy'; // default to busy if not marked
+      const status: AvailabilityStatus = dayAvail?.status || 'busy';
 
       if (status === 'available') {
         availableCount++;
@@ -145,8 +144,9 @@ export function calculateTripWindows(
     let minAvail = totalParticipants;
     const daySummaries: DaySummary[] = [];
 
-    // Track participants who have busy or maybe days in this window
-    const participantUnavailableDays = new Map<string, number>();
+    // Distinct tracking for Busy vs Maybe
+    const participantBusyDays = new Map<string, number>();
+    const participantMaybeDays = new Map<string, number>();
 
     for (const d of windowDates) {
       const dateKey = format(d, 'yyyy-MM-dd');
@@ -157,25 +157,36 @@ export function calculateTripWindows(
         minAvail = daySummary.availableCount;
       }
 
-      // Check each participant
+      // Check each participant status
       for (const p of participants) {
-        const pAvail = responseMap.get(p.id)?.[dateKey]?.status;
-        if (pAvail !== 'available') {
-          const count = participantUnavailableDays.get(p.id) || 0;
-          participantUnavailableDays.set(p.id, count + 1);
+        const pStatus = responseMap.get(p.id)?.[dateKey]?.status || 'busy';
+        if (pStatus === 'busy') {
+          const count = participantBusyDays.get(p.id) || 0;
+          participantBusyDays.set(p.id, count + 1);
+        } else if (pStatus === 'maybe') {
+          const count = participantMaybeDays.get(p.id) || 0;
+          participantMaybeDays.set(p.id, count + 1);
         }
       }
     }
 
     const avgScore = sumScore / durationDays;
     const attendancePercentage = Math.round(avgScore * 100);
-    const fullAttendance = totalParticipants > 0 && participantUnavailableDays.size === 0;
+    const fullAttendance = totalParticipants > 0 && participantBusyDays.size === 0 && participantMaybeDays.size === 0;
 
-    const unvailableList = Array.from(participantUnavailableDays.entries()).map(
+    const unvailableList = Array.from(participantBusyDays.entries()).map(
       ([id, daysUnavailable]) => ({
         id,
         name: participantMap.get(id)?.name || 'Unknown',
         daysUnavailable,
+      })
+    );
+
+    const maybeList = Array.from(participantMaybeDays.entries()).map(
+      ([id, daysMaybe]) => ({
+        id,
+        name: participantMap.get(id)?.name || 'Unknown',
+        daysMaybe,
       })
     );
 
@@ -189,6 +200,7 @@ export function calculateTripWindows(
       attendancePercentage,
       daySummaries,
       unvailableParticipants: unvailableList.sort((a, b) => b.daysUnavailable - a.daysUnavailable),
+      maybeParticipants: maybeList.sort((a, b) => b.daysMaybe - a.daysMaybe),
     });
   }
 

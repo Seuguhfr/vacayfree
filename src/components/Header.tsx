@@ -1,5 +1,5 @@
 import React from 'react';
-import { Palmtree, Share2, Settings, Plus, Sparkles, Lock, ArrowLeft } from 'lucide-react';
+import { Palmtree, Share2, Settings, Plus, Lock, ArrowLeft } from 'lucide-react';
 import { TripEvent } from '../types';
 
 interface HeaderProps {
@@ -25,7 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-zinc-200/80 transition-all">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         {/* Brand / Home link */}
         <div className="flex items-center gap-3">
           <button
@@ -34,20 +34,20 @@ export const Header: React.FC<HeaderProps> = ({
             className="flex items-center gap-2.5 text-left group cursor-pointer focus:outline-none"
             title="Go to VacayFree Home"
           >
-            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm shadow-emerald-600/20 group-hover:bg-emerald-700 transition-colors">
+            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm shadow-emerald-600/20 group-hover:bg-emerald-700 transition-colors">
               <Palmtree className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-lg tracking-tight text-zinc-900 leading-none group-hover:text-emerald-700 transition-colors">
+                <span className="font-bold text-base sm:text-lg tracking-tight text-zinc-900 leading-none group-hover:text-emerald-700 transition-colors">
                   VacayFree
                 </span>
-                <span className="text-[11px] font-medium tracking-wide uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/60">
                   Vacation Poll
                 </span>
               </div>
               {event && (
-                <p className="text-xs text-zinc-500 font-medium truncate max-w-[180px] sm:max-w-xs mt-0.5">
+                <p className="text-xs text-zinc-500 font-medium truncate max-w-[160px] sm:max-w-xs mt-0.5">
                   {event.title}
                 </p>
               )}
@@ -57,13 +57,13 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Actions */}
         <div className="flex items-center gap-2 sm:gap-2.5">
-          {event && (
+          {event ? (
             <>
               {/* Return to Home button */}
               <button
                 type="button"
                 onClick={onGoHome}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs sm:text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer"
                 title="Return to home page"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -91,8 +91,8 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 {isAdmin ? (
                   <>
-                    <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-700 animate-spin-slow" />
-                    <span className="hidden sm:inline">Admin</span>
+                    <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-700" />
+                    <span className="hidden sm:inline font-semibold">Organizer</span>
                   </>
                 ) : (
                   <>
@@ -101,26 +101,24 @@ export const Header: React.FC<HeaderProps> = ({
                   </>
                 )}
               </button>
+
+              <button
+                type="button"
+                onClick={onOpenNewTrip}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium bg-zinc-100 text-zinc-800 hover:bg-zinc-200/80 transition-all cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden md:inline">New Poll</span>
+              </button>
             </>
-          )}
-
-          <button
-            type="button"
-            onClick={onOpenNewTrip}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium bg-zinc-100 text-zinc-800 hover:bg-zinc-200/80 transition-all cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="hidden md:inline">New Trip</span>
-          </button>
-
-          {!event && (
+          ) : (
+            /* On Landing Page: Keep navbar minimal to avoid duplicate conflicting CTAs! */
             <button
               type="button"
               onClick={onLoadDemo}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-all cursor-pointer shadow-sm shadow-emerald-600/20"
+              className="text-xs sm:text-sm font-semibold text-zinc-600 hover:text-emerald-700 px-3 py-1.5 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
             >
-              <Sparkles className="w-4 h-4" />
-              <span>Load Demo</span>
+              Try Live Demo →
             </button>
           )}
         </div>
@@ -129,7 +127,7 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Demo notification banner if in demo */}
       {isDemo && (
         <div className="bg-amber-50/90 border-t border-amber-200/70 px-4 py-1.5 text-center text-xs text-amber-900 flex items-center justify-center gap-2">
-          <span>✨ You are currently exploring the <strong>Live Demo</strong> with sample friend data.</span>
+          <span>✨ Viewing <strong>Live Demo</strong> with sample responses.</span>
           <button
             type="button"
             onClick={onOpenNewTrip}

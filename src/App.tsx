@@ -30,7 +30,7 @@ import { PinModal } from './components/PinModal';
 import { DayDetailsModal } from './components/DayDetailsModal';
 import { DayNoteModal } from './components/DayNoteModal';
 
-import { Palmtree, Sparkles, Plus, Calendar, Users, Compass } from 'lucide-react';
+import { Palmtree, Sparkles, Plus, Calendar, Users, Compass, UserPlus } from 'lucide-react';
 
 export default function App() {
   const [eventData, setEventData] = useState<EventDataPackage | null>(null);
@@ -59,12 +59,21 @@ export default function App() {
     note: '',
   });
 
-  // Parse URL hash for #event=<id>&admin=<key>
+  // Parse URL: check query params (?event=...) AND hash (#event=...)
   const parseUrlParams = useCallback(() => {
-    const hash = window.location.hash.replace(/^#/, '');
-    const params = new URLSearchParams(hash);
-    const eventId = params.get('event');
-    const adminParam = params.get('admin');
+    // 1. Check search query params first (better for link previews & social shares)
+    const searchParams = new URLSearchParams(window.location.search);
+    let eventId = searchParams.get('event');
+    let adminParam = searchParams.get('admin');
+
+    // 2. Fallback to hash params
+    if (!eventId) {
+      const hash = window.location.hash.replace(/^#/, '');
+      const hashParams = new URLSearchParams(hash);
+      eventId = hashParams.get('event');
+      adminParam = hashParams.get('admin') || adminParam;
+    }
+
     return { eventId, adminParam };
   }, []);
 
@@ -105,22 +114,21 @@ export default function App() {
     }
   }, []);
 
-  // Initialize from hash or fallback
+  // Initialize from URL or fallback
   useEffect(() => {
     const { eventId, adminParam } = parseUrlParams();
     if (eventId) {
       loadEvent(eventId, adminParam);
     } else {
-      // Check if recent events exist
       const recent = StorageService.getRecentEvents();
       if (recent.length > 0) {
-        window.location.hash = `#event=${recent[0]}`;
+        window.history.replaceState(null, '', `?event=${recent[0]}`);
         loadEvent(recent[0]);
       }
     }
 
-    // Hash change listener
-    const handleHashChange = () => {
+    // URL change listener
+    const handleUrlChange = () => {
       const { eventId: newId, adminParam: newAdmin } = parseUrlParams();
       if (newId) {
         loadEvent(newId, newAdmin);
@@ -132,8 +140,13 @@ export default function App() {
         setAdminKey(null);
       }
     };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+
+    window.addEventListener('hashchange', handleUrlChange);
+    window.addEventListener('popstate', handleUrlChange);
+    return () => {
+      window.removeEventListener('hashchange', handleUrlChange);
+      window.removeEventListener('popstate', handleUrlChange);
+    };
   }, [loadEvent, parseUrlParams]);
 
   // Derived calculations
@@ -163,8 +176,9 @@ export default function App() {
     return eventData.responses.find(r => r.participantId === currentParticipant.id) || null;
   }, [eventData, currentParticipant]);
 
-  // Handlers
+  // Navigation & Actions
   const handleGoHome = () => {
+    window.history.pushState(null, '', window.location.pathname);
     window.location.hash = '';
     setEventData(null);
     setCurrentParticipant(null);
@@ -175,12 +189,12 @@ export default function App() {
 
   const handleLoadDemo = async () => {
     const demo = await createDemoEvent();
-    window.location.hash = `#event=${demo.event.id}&admin=super-secret-demo-admin`;
+    window.history.pushState(null, '', `?event=${demo.event.id}&admin=super-secret-demo-admin`);
     loadEvent(demo.event.id, 'super-secret-demo-admin');
   };
 
   const handleTripCreated = (eventId: string, key: string) => {
-    window.location.hash = `#event=${eventId}&admin=${key}`;
+    window.history.pushState(null, '', `?event=${eventId}&admin=${key}`);
     loadEvent(eventId, key);
   };
 
@@ -217,7 +231,11 @@ export default function App() {
   };
 
   const handleSelectParticipant = (p: Participant) => {
-    setCurrentParticipant(p);
+    // If it's the currently logged-in user, do nothing (already editing)
+    if (currentParticipant?.id === p.id) return;
+    // Prompt PIN to unlock or switch to them
+    setPinTarget(p);
+    setIsPinOpen(true);
   };
 
   const handleLogoutParticipant = () => {
@@ -291,6 +309,14 @@ export default function App() {
     handleSaveAvailability(updated);
   };
 
+  const handleFinalizeWindow = (win: TripWindow) => {
+    handleUpdateEvent({
+      startDate: win.startDate,
+      endDate: win.endDate,
+      isLocked: true,
+    });
+  };
+
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 flex flex-col font-sans selection:bg-emerald-100 selection:text-emerald-900 pb-16">
       <Header
@@ -303,9 +329,9 @@ export default function App() {
         onGoHome={handleGoHome}
       />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 pt-5 sm:pt-6">
         {!eventData ? (
-          /* Empty / Landing Hero State */
+          /* Landing Hero View */
           <div className="max-w-2xl mx-auto text-center py-12 sm:py-20 space-y-8 animate-in fade-in duration-300">
             <div className="inline-flex p-4 rounded-3xl bg-emerald-600 text-white shadow-lg shadow-emerald-600/20">
               <Palmtree className="w-12 h-12 stroke-[2]" />
@@ -316,10 +342,11 @@ export default function App() {
                 Plan holidays together without the headache.
               </h1>
               <p className="text-base sm:text-lg text-zinc-600 max-w-lg mx-auto leading-relaxed">
-                Create a trip poll, share the link, paint your free vacation days, and instantly discover the best dates for everyone.
+                Create a trip poll, share the link with friends, paint your free vacation days, and instantly discover the best continuous dates for everyone.
               </p>
             </div>
 
+            {/* Clear Primary & Secondary Actions */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
               <button
                 type="button"
@@ -336,11 +363,11 @@ export default function App() {
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl text-sm font-semibold bg-white text-zinc-800 border border-zinc-200/90 hover:bg-zinc-100/80 active:scale-[0.98] transition-all cursor-pointer shadow-xs"
               >
                 <Sparkles className="w-4 h-4 text-emerald-600" />
-                <span>Explore Live Demo</span>
+                <span>Try Live Demo</span>
               </button>
             </div>
 
-            {/* Feature Highlights (Clean & Direct) */}
+            {/* Feature Highlights */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-10 text-left border-t border-zinc-200/60">
               <div className="p-4 rounded-2xl bg-white border border-zinc-200/80 shadow-xs">
                 <Users className="w-5 h-5 text-emerald-600 mb-2" />
@@ -369,22 +396,37 @@ export default function App() {
           </div>
         ) : (
           /* Active Poll Dashboard */
-          <div className="space-y-6 animate-in fade-in duration-200">
-            {/* Poll Description Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-2">
+          <div className="space-y-5 animate-in fade-in duration-200">
+            {/* Poll Title & Description Banner */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200/80 shadow-xs">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-950">
+                <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-zinc-950">
                   {eventData.event.title}
                 </h1>
                 {eventData.event.description && (
-                  <p className="text-sm text-zinc-600 mt-0.5">
+                  <p className="text-xs sm:text-sm text-zinc-600 mt-0.5">
                     {eventData.event.description}
                   </p>
                 )}
               </div>
+
+              {/* High-visibility "+ Add Your Dates" CTA for participants who haven't submitted dates yet */}
+              {!currentParticipant && !eventData.event.isLocked && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPinTarget(null);
+                    setIsPinOpen(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition-all cursor-pointer shadow-sm shadow-emerald-600/20 shrink-0"
+                >
+                  <UserPlus className="w-4 h-4 stroke-[2.5]" />
+                  <span>+ Add Your Dates</span>
+                </button>
+              )}
             </div>
 
-            {/* Participant Bar & Access Controls */}
+            {/* Participant Bar & Sessions */}
             <ParticipantBar
               participants={eventData.participants}
               responses={eventData.responses}
@@ -394,35 +436,41 @@ export default function App() {
                 setPinTarget(null);
                 setIsPinOpen(true);
               }}
-              onSelectParticipant={(p) => {
-                setPinTarget(p);
-                setIsPinOpen(true);
-              }}
+              onSelectParticipant={handleSelectParticipant}
               onLogoutParticipant={handleLogoutParticipant}
             />
 
-            {/* Smart Window Finder */}
-            <TripWindowFinder
-              windows={tripWindows}
-              selectedWindow={selectedWindow}
-              onSelectWindow={setSelectedWindow}
-              targetDuration={targetDuration}
-              onChangeDuration={setTargetDuration}
-              participants={eventData.participants}
-            />
+            {/* 2-COLUMN SPLIT LAYOUT (Solves the "Highlight" Scroll Paradox!) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+              {/* Left/Main Column: Calendar Heatmap & Paint Mode */}
+              <div className="lg:col-span-7 xl:col-span-8 order-2 lg:order-1">
+                <CalendarGrid
+                  startDateStr={eventData.event.startDate}
+                  endDateStr={eventData.event.endDate}
+                  daySummaries={daySummaries}
+                  selectedWindow={selectedWindow}
+                  currentParticipant={currentParticipant}
+                  myResponse={myResponse}
+                  onSaveAvailability={handleSaveAvailability}
+                  onSelectDayDetails={setSelectedDaySummary}
+                  onOpenDayNote={handleOpenDayNote}
+                />
+              </div>
 
-            {/* Interactive Calendar (Heatmap / Paint Mode) */}
-            <CalendarGrid
-              startDateStr={eventData.event.startDate}
-              endDateStr={eventData.event.endDate}
-              daySummaries={daySummaries}
-              selectedWindow={selectedWindow}
-              currentParticipant={currentParticipant}
-              myResponse={myResponse}
-              onSaveAvailability={handleSaveAvailability}
-              onSelectDayDetails={setSelectedDaySummary}
-              onOpenDayNote={handleOpenDayNote}
-            />
+              {/* Right Column (Sticky on Desktop): Smart Trip Window Finder */}
+              <div className="lg:col-span-5 xl:col-span-4 order-1 lg:order-2 lg:sticky lg:top-20">
+                <TripWindowFinder
+                  windows={tripWindows}
+                  selectedWindow={selectedWindow}
+                  onSelectWindow={setSelectedWindow}
+                  targetDuration={targetDuration}
+                  onChangeDuration={setTargetDuration}
+                  participants={eventData.participants}
+                  isAdmin={isAdmin}
+                  onFinalizeDate={handleFinalizeWindow}
+                />
+              </div>
+            </div>
           </div>
         )}
       </main>
@@ -440,7 +488,6 @@ export default function App() {
             isOpen={isShareOpen}
             onClose={() => setIsShareOpen(false)}
             event={eventData.event}
-            adminKey={adminKey}
           />
 
           <AdminModal
@@ -449,6 +496,7 @@ export default function App() {
             event={eventData.event}
             participants={eventData.participants}
             isAdmin={isAdmin}
+            adminKey={adminKey}
             onVerifyAdmin={handleVerifyAdmin}
             onUpdateEvent={handleUpdateEvent}
             onDeleteParticipant={handleDeleteParticipant}
@@ -460,7 +508,7 @@ export default function App() {
             eventId={eventData.event.id}
             participants={eventData.participants}
             targetParticipant={pinTarget}
-            onSelectParticipant={handleSelectParticipant}
+            onSelectParticipant={(p) => setCurrentParticipant(p)}
           />
 
           <DayDetailsModal

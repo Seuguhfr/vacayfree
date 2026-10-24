@@ -161,36 +161,37 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
           />
         </div>
 
-        {/* Date Presets */}
+        {/* Prominent Date Presets */}
         <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-zinc-500" />
-              Calendar Window *
-            </label>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => handleQuickDates('summer')}
-                className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors cursor-pointer"
-              >
-                Summer
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDates('nextMonth')}
-                className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors cursor-pointer"
-              >
-                Next Month
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDates('autumn')}
-                className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors cursor-pointer"
-              >
-                Autumn
-              </button>
-            </div>
+          <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600 flex items-center gap-1.5 mb-1.5">
+            <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+            <span>Calendar Window *</span>
+          </label>
+
+          {/* Prominent Quick-Select Chips right under heading */}
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[11px] font-semibold text-zinc-500">Quick presets:</span>
+            <button
+              type="button"
+              onClick={() => handleQuickDates('summer')}
+              className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-800 transition-colors cursor-pointer border border-zinc-200"
+            >
+              ☀️ Summer (Jul & Aug)
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickDates('nextMonth')}
+              className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-800 transition-colors cursor-pointer border border-zinc-200"
+            >
+              Next Month
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickDates('autumn')}
+              className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-800 transition-colors cursor-pointer border border-zinc-200"
+            >
+              Autumn
+            </button>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -307,7 +308,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 type="text"
                 value={creatorName}
                 onChange={(e) => setCreatorName(e.target.value)}
-                placeholder="Your Name (e.g., Alex)"
+                placeholder="Your Name (e.g. Alex)"
                 className="w-full px-3 py-1.5 rounded-lg border border-zinc-200 bg-white text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
               />
             </div>
@@ -323,7 +324,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
             </div>
           </div>
           <p className="text-[10px] text-zinc-500">
-            You'll receive a secret admin link to manage or lock the poll at any time.
+            You will receive a secret admin link inside Organizer Controls to manage responses.
           </p>
         </div>
 
