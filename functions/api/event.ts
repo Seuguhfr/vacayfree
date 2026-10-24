@@ -314,6 +314,25 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         pinHash: computedHash || existing?.pinHash || participant.pinHash || '',
       };
 
+      // Update participant index key for instant 0-second propagation
+      const partsIndexRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
+      let partsList: any[] = [];
+      if (partsIndexRaw) {
+        try { partsList = JSON.parse(partsIndexRaw); } catch {}
+      }
+      const existingIdx = partsList.findIndex((p: any) => p.id === participant.id);
+      const publicPartRecord = {
+        id: participant.id,
+        name: (participant.name || 'Friend').slice(0, 50),
+        color: participant.color || 'bg-indigo-500',
+        createdAt: participantRecord.createdAt || new Date().toISOString(),
+      };
+      if (existingIdx >= 0) {
+        partsList[existingIdx] = { ...partsList[existingIdx], ...publicPartRecord };
+      } else {
+        partsList.push(publicPartRecord);
+      }
+
       // Atomic independent writes: Zero collisions between simultaneous participants!
       await Promise.all([
         context.env.VACAY_KV.put(
@@ -324,6 +343,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         context.env.VACAY_KV.put(
           `event:${eventId}:response:${participant.id}`,
           JSON.stringify(response),
+          { expirationTtl: ttl }
+        ),
+        context.env.VACAY_KV.put(
+          `event:${eventId}:participants`,
+          JSON.stringify(partsList),
           { expirationTtl: ttl }
         ),
       ]);
@@ -394,10 +418,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return new Response(JSON.stringify({ error: 'Unauthorized: Invalid admin key' }), { status: 401 });
       }
 
-      // Delete discrete participant and response keys
+      // Delete discrete participant and response keys, and remove from index
+      const partsRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
+      let updatePartsPromise: Promise<any> = Promise.resolve();
+      if (partsRaw) {
+        try {
+          const parts = JSON.parse(partsRaw).filter((p: any) => p.id !== participantId);
+          updatePartsPromise = context.env.VACAY_KV.put(`event:${eventId}:participants`, JSON.stringify(parts), { expirationTtl: ttl });
+        } catch {}
+      }
+
       await Promise.all([
         context.env.VACAY_KV.delete(`event:${eventId}:participant:${participantId}`),
         context.env.VACAY_KV.delete(`event:${eventId}:response:${participantId}`),
+        updatePartsPromise,
       ]);
 
       return new Response(JSON.stringify({ success: true, removed: participantId }), {
@@ -460,10 +494,28 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // Save participants as discrete atomic keys
+    // Save participants as discrete atomic keys AND index
     if (payload.participants && Array.isArray(payload.participants)) {
-      await Promise.all(
-        payload.participants.map((p: any) => {
+      const existingRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
+      let merged = payload.participants;
+      if (existingRaw) {
+        try {
+          const existingList = JSON.parse(existingRaw);
+          if (Array.isArray(existingList)) {
+            const map = new Map<string, any>();
+            for (const p of existingList) map.set(p.id, p);
+            for (const p of payload.participants) map.set(p.id, { ...(map.get(p.id) || {}), ...p });
+            merged = Array.from(map.values());
+          }
+        } catch {}
+      }
+      await Promise.all([
+        context.env.VACAY_KV.put(
+          `event:${eventId}:participants`,
+          JSON.stringify(merged),
+          { expirationTtl: ttl }
+        ),
+        ...merged.map((p: any) => {
           if (!p?.id) return Promise.resolve();
           const partKey = `event:${eventId}:participant:${p.id}`;
           return context.env.VACAY_KV!.put(
@@ -471,8 +523,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             JSON.stringify(p),
             { metadata: p, expirationTtl: ttl }
           );
-        })
-      );
+        }),
+      ]);
     }
 
     // Save any individual responses
