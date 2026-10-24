@@ -127,6 +127,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         event: sanitizedEvent,
         participants: sanitizedParticipants,
         responses,
+        _debug: {
+          partKeyCount: partKeyList?.keys?.length ?? -1,
+          partKeys: partKeyList?.keys?.map(k => k.name) ?? [],
+          indexRawLength: participantsIndexRaw ? participantsIndexRaw.length : 0,
+        }
       }),
       {
         headers: {
