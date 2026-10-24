@@ -84,17 +84,20 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       } catch {}
     }
 
-    // Load from discrete atomic keys (metadata or gets)
+    // Load from discrete atomic keys with instant tombstone/deletion detection
     if (partKeyList.keys && partKeyList.keys.length > 0) {
       const discreteGets = partKeyList.keys.map(async (k) => {
-        if (k.metadata) return k.metadata;
+        const partId = k.name.replace(`event:${eventId}:participant:`, '');
         const val = await context.env.VACAY_KV!.get(k.name);
-        return val ? JSON.parse(val) : null;
+        return { partId, data: val ? JSON.parse(val) : null };
       });
       const fetchedParts = await Promise.all(discreteGets);
-      for (const p of fetchedParts) {
-        if (p?.id) {
-          participantMap.set(p.id, { ...(participantMap.get(p.id) || {}), ...p });
+      for (const { partId, data } of fetchedParts) {
+        if (!data) {
+          // Discrete key was deleted -> strongly consistent purge
+          participantMap.delete(partId);
+        } else {
+          participantMap.set(partId, { ...(participantMap.get(partId) || {}), ...data });
         }
       }
     }
