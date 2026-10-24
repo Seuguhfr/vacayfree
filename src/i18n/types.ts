@@ -63,6 +63,9 @@ export interface TranslationDictionary {
   heatmapLegend: string;
   legendNone: string;
   legendAll: string;
+  legend100Percent: string;
+  legendMaybe: string;
+  legendNote: string;
   clickOrDragHint: string;
   noteToolHint: string;
   noteToolBannerHint: string;

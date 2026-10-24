@@ -81,7 +81,7 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
   const fullAttendanceCount = windows.filter(w => w.fullAttendance).length;
 
   return (
-    <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 sm:p-5 shadow-xs space-y-4">
+    <div id="trip-windows-finder" className="bg-white rounded-2xl border border-zinc-200/80 p-4 sm:p-5 shadow-xs space-y-4">
       {/* Header & Dedicated Duration Selector */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-100">
         <div>
@@ -297,7 +297,7 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
                   </div>
 
                   {/* Action buttons at bottom */}
-                  <div className="mt-3.5 pt-3 border-t border-zinc-100 flex items-center gap-2">
+                  <div className="mt-3.5 pt-3 border-t border-zinc-100 flex items-stretch gap-2">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -305,16 +305,17 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
                         const next = isSelected ? null : win;
                         onSelectWindow(next);
                         if (next) {
-                          document.getElementById('calendar-section')?.scrollIntoView({ behavior: 'smooth' });
+                          const calEl = document.getElementById('calendar-months') || document.getElementById('calendar-section');
+                          calEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         }
                       }}
-                      className={`flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                      className={`flex-1 h-full inline-flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer text-center ${
                         isSelected
                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                           : 'bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100'
                       }`}
                     >
-                      <Eye className="w-3.5 h-3.5" />
+                      <Eye className="w-3.5 h-3.5 shrink-0" />
                       <span>{isSelected ? t.viewingBtn : t.highlightBtn}</span>
                     </button>
 
@@ -325,10 +326,10 @@ export const TripWindowFinder: React.FC<TripWindowFinderProps> = ({
                           e.stopPropagation();
                           triggerCelebration(win);
                         }}
-                        className="inline-flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 transition-colors cursor-pointer"
+                        className="h-full inline-flex items-center justify-center gap-1 py-2 px-2.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 transition-colors cursor-pointer text-center whitespace-nowrap shrink-0"
                         title="Choose and lock this date (Organizer)"
                       >
-                        <Check className="w-3.5 h-3.5 text-amber-700 stroke-[2.5]" />
+                        <Check className="w-3.5 h-3.5 text-amber-700 stroke-[2.5] shrink-0" />
                         <span>{t.lockDateBtn}</span>
                       </button>
                     )}

@@ -290,17 +290,36 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
               )}
             </div>
           ) : (
-            /* Viewer mode Heatmap legend */
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-zinc-800 text-xs">{t.heatmapLegend}</span>
+            /* Viewer mode Heatmap legend with all indicators */
+            <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2 text-xs">
+              {/* Availability Scale */}
               <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-sm bg-zinc-100 border border-zinc-200" title={t.legendNone} />
-                <span className="text-[11px] text-zinc-500">{t.legendNone}</span>
-                <span className="w-3 h-3 rounded-sm bg-emerald-100 border border-emerald-200" />
-                <span className="w-3 h-3 rounded-sm bg-emerald-300 border border-emerald-400" />
-                <span className="w-3 h-3 rounded-sm bg-emerald-500" />
-                <span className="w-3 h-3 rounded-sm bg-emerald-600 ring-1 ring-emerald-400" title={t.legendAll} />
-                <span className="text-[11px] font-bold text-emerald-800">{t.legendAll}</span>
+                <span className="font-bold text-zinc-800 text-[11px] sm:text-xs">{t.heatmapLegend}</span>
+                <div className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-xs bg-zinc-100 border border-zinc-200" title={t.legendNone} />
+                  <span className="text-[10px] sm:text-[11px] text-zinc-500">{t.legendNone}</span>
+                  <span className="w-2.5 h-2.5 rounded-xs bg-emerald-100 border border-emerald-200" />
+                  <span className="w-2.5 h-2.5 rounded-xs bg-emerald-300 border border-emerald-400" />
+                  <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500" />
+                  <span className="w-2.5 h-2.5 rounded-xs bg-emerald-600 ring-1 ring-emerald-400" title={t.legendAll} />
+                  <span className="text-[10px] sm:text-[11px] font-bold text-emerald-800">{t.legendAll}</span>
+                </div>
+              </div>
+
+              {/* Cell Indicators: Sparkles, Maybe dot, Note */}
+              <div className="flex flex-wrap items-center gap-2.5 pl-2 sm:pl-3 border-l border-zinc-200 text-[10px] sm:text-[11px] text-zinc-600">
+                <span className="inline-flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-500 fill-amber-400/30 shrink-0" />
+                  <span>{t.legend100Percent}</span>
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 ring-1 ring-amber-500/20 shrink-0" />
+                  <span>{t.legendMaybe}</span>
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <MessageSquare className="w-2.5 h-2.5 text-zinc-500 shrink-0" />
+                  <span>{t.legendNote}</span>
+                </span>
               </div>
             </div>
           )}
