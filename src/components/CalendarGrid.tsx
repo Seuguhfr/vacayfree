@@ -206,9 +206,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
     >
-      {/* Calendar Controls & Mode Switcher Toolbar */}
-      <div className="sticky top-16 z-20 space-y-2">
-        <div className="bg-white/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+      {/* Sticky Compact Calendar Controls Toolbar */}
+      <div className="sticky top-16 z-20 py-1 bg-white">
+        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
           {currentParticipant ? (
             /* Mode Switcher for logged in participants */
             <div className="flex flex-wrap items-center gap-2">
@@ -307,35 +307,37 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
 
           {/* Right side controls */}
           {currentParticipant && viewTab === 'paint' ? (
-            <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 whitespace-nowrap">
-              <button
-                type="button"
-                onClick={() => handleQuickFill('available')}
-                className="text-[11px] font-semibold text-zinc-600 hover:text-zinc-900 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-              >
-                {t.allFree}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('busy')}
-                className="text-[11px] font-semibold text-zinc-600 hover:text-zinc-900 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-              >
-                {t.allBusy}
-              </button>
-              {isDirty && (
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 <button
                   type="button"
-                  onClick={handleReset}
-                  className="text-[11px] font-semibold text-zinc-500 hover:text-zinc-800 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
+                  onClick={() => handleQuickFill('available')}
+                  className="text-[11px] font-semibold text-zinc-600 hover:text-zinc-900 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                 >
-                  <RotateCcw className="w-3 h-3" />
-                  <span>{t.resetChanges}</span>
+                  {t.allFree}
                 </button>
-              )}
+                <button
+                  type="button"
+                  onClick={() => handleQuickFill('busy')}
+                  className="text-[11px] font-semibold text-zinc-600 hover:text-zinc-900 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                >
+                  {t.allBusy}
+                </button>
+                {isDirty && (
+                  <button
+                    type="button"
+                    onClick={handleReset}
+                    className="text-[11px] font-semibold text-zinc-500 hover:text-zinc-800 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>{t.resetChanges}</span>
+                  </button>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={handleSave}
-                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer w-full sm:w-auto shrink-0 ${
                   isDirty
                     ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                     : 'bg-zinc-900 text-white hover:bg-zinc-800'
@@ -354,50 +356,50 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
             </div>
           )}
         </div>
-
-        {/* Dynamic Context Banners */}
-        {currentParticipant && viewTab === 'paint' && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-50/90 border border-zinc-200/80 text-xs text-zinc-600 shadow-2xs">
-            {brushTool === 'note' ? (
-              <>
-                <MessageSquare className="w-4 h-4 text-indigo-600 shrink-0" />
-                <span>
-                  <strong>{t.brushNote} :</strong> {t.noteToolBannerHint}
-                </span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>
-                  <strong>{t.brushLabel}</strong> {t.clickOrDragHint}. {t.noteToolHint}.
-                </span>
-              </>
-            )}
-          </div>
-        )}
-
-        {currentParticipant && viewTab === 'heatmap' && (
-          <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-indigo-50/80 border border-indigo-200/90 text-xs text-indigo-950 shadow-2xs">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-indigo-600 shrink-0" />
-              <span>
-                <strong>{t.groupHeatmapTab} :</strong> {t.windowsSubtitle}.
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setViewTab('paint')}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-indigo-700 hover:bg-indigo-100 border border-indigo-200 shadow-2xs cursor-pointer transition-colors shrink-0"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{t.myDatesTab}</span>
-            </button>
-          </div>
-        )}
       </div>
 
+      {/* Non-sticky Instructional Context Banners (scroll naturally out of the way) */}
+      {currentParticipant && viewTab === 'paint' && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-600 shadow-2xs">
+          {brushTool === 'note' ? (
+            <>
+              <MessageSquare className="w-4 h-4 text-indigo-600 shrink-0" />
+              <span>
+                <strong>{t.brushNote} :</strong> {t.noteToolBannerHint}
+              </span>
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>
+                <strong>{t.brushLabel}</strong> {t.clickOrDragHint}. {t.noteToolHint}.
+              </span>
+            </>
+          )}
+        </div>
+      )}
+
+      {currentParticipant && viewTab === 'heatmap' && (
+        <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-indigo-50 border border-indigo-200/90 text-xs text-indigo-950 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-indigo-600 shrink-0" />
+            <span>
+              <strong>{t.groupHeatmapTab} :</strong> {t.windowsSubtitle}.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setViewTab('paint')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-indigo-700 hover:bg-indigo-100 border border-indigo-200 shadow-2xs cursor-pointer transition-colors shrink-0"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+            <span>{t.myDatesTab}</span>
+          </button>
+        </div>
+      )}
+
       {/* Calendar Months Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div id="calendar-months" className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {months.map((monthDate) => {
           const monthStart = startOfMonth(monthDate);
           const monthEnd = endOfMonth(monthDate);
@@ -478,7 +480,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                         key={dateKey}
                         onPointerDown={() => handleCellPointerDown(dateKey)}
                         onPointerEnter={() => handleCellPointerEnter(dateKey)}
-                        className={`min-h-[58px] sm:min-h-[66px] rounded-xl border flex flex-col items-center justify-between p-1.5 sm:p-2 transition-all cursor-pointer calendar-cell ${bgClass} active:scale-95 ${
+                        className={`min-h-[52px] sm:min-h-[66px] rounded-xl border flex flex-col items-center justify-between p-1.5 sm:p-2 transition-all cursor-pointer calendar-cell ${bgClass} active:scale-95 ${
                           brushTool === 'note' ? 'hover:ring-2 hover:ring-indigo-400' : ''
                         }`}
                       >
@@ -514,8 +516,14 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                             </button>
                           )}
                         </div>
-                        <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-tight sm:tracking-normal opacity-90 leading-tight text-center">
+                        <span className="hidden sm:block text-[10px] font-bold uppercase tracking-normal opacity-90 leading-tight text-center">
                           {status === 'available' ? t.brushFree : status === 'maybe' ? t.brushMaybe : t.brushBusy}
+                        </span>
+                        <span
+                          className="sm:hidden text-xs font-bold leading-none text-center opacity-90"
+                          aria-label={status === 'available' ? t.brushFree : status === 'maybe' ? t.brushMaybe : t.brushBusy}
+                        >
+                          {status === 'available' ? '✓' : status === 'maybe' ? '?' : '–'}
                         </span>
                       </div>
                     );
@@ -564,7 +572,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                       key={dateKey}
                       type="button"
                       onClick={handleSelectDay}
-                      className={`min-h-[58px] sm:min-h-[66px] rounded-xl border flex flex-col items-center justify-between p-2 transition-all text-left cursor-pointer calendar-cell ${cellColor} ${
+                      className={`min-h-[52px] sm:min-h-[66px] rounded-xl border flex flex-col items-center justify-between p-1.5 sm:p-2 transition-all text-left cursor-pointer calendar-cell ${cellColor} ${
                         isInSelectedWindow
                           ? 'ring-3 ring-indigo-500 ring-offset-2 scale-[1.03] z-10 shadow-md'
                           : 'hover:scale-[1.02]'
