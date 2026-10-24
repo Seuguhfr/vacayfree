@@ -127,11 +127,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         event: sanitizedEvent,
         participants: sanitizedParticipants,
         responses,
-        _debug: {
-          partKeyCount: partKeyList?.keys?.length ?? -1,
-          partKeys: partKeyList?.keys?.map(k => k.name) ?? [],
-          indexRawLength: participantsIndexRaw ? participantsIndexRaw.length : 0,
-        }
       }),
       {
         headers: {
@@ -314,26 +309,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         pinHash: computedHash || existing?.pinHash || participant.pinHash || '',
       };
 
-      // Update participant index key for instant 0-second propagation
-      const partsIndexRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
-      let partsList: any[] = [];
-      if (partsIndexRaw) {
-        try { partsList = JSON.parse(partsIndexRaw); } catch {}
-      }
-      const existingIdx = partsList.findIndex((p: any) => p.id === participant.id);
-      const publicPartRecord = {
-        id: participant.id,
-        name: (participant.name || 'Friend').slice(0, 50),
-        color: participant.color || 'bg-indigo-500',
-        createdAt: participantRecord.createdAt || new Date().toISOString(),
-      };
-      if (existingIdx >= 0) {
-        partsList[existingIdx] = { ...partsList[existingIdx], ...publicPartRecord };
-      } else {
-        partsList.push(publicPartRecord);
-      }
-
-      // Atomic independent writes: Zero collisions between simultaneous participants!
+      // Atomic independent writes to discrete keys: Zero 429 lock contention!
       await Promise.all([
         context.env.VACAY_KV.put(
           partKey,
@@ -343,11 +319,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         context.env.VACAY_KV.put(
           `event:${eventId}:response:${participant.id}`,
           JSON.stringify(response),
-          { expirationTtl: ttl }
-        ),
-        context.env.VACAY_KV.put(
-          `event:${eventId}:participants`,
-          JSON.stringify(partsList),
           { expirationTtl: ttl }
         ),
       ]);
