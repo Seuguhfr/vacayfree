@@ -53,6 +53,7 @@ export interface TranslationDictionary {
   brushFree: string;
   brushMaybe: string;
   brushBusy: string;
+  brushNote: string;
   allFree: string;
   allBusy: string;
   resetChanges: string;
@@ -63,6 +64,9 @@ export interface TranslationDictionary {
   legendNone: string;
   legendAll: string;
   clickOrDragHint: string;
+  noteToolHint: string;
+  noteToolBannerHint: string;
+  groupOverviewTapHint: string;
   tapToEditHint: string;
   lockedBannerDateWarning: string;
   chatNoteTooltip: string;

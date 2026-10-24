@@ -59,7 +59,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   // View mode tab: 'paint' (personal painter) vs 'heatmap' (overall group calendar)
   const [viewTab, setViewTab] = useState<'paint' | 'heatmap'>(currentParticipant ? 'paint' : 'heatmap');
   const isPaintMode = !!currentParticipant && viewTab === 'paint';
-  const [brushStatus, setBrushStatus] = useState<'available' | 'maybe'>('available');
+  const [brushTool, setBrushTool] = useState<'available' | 'maybe' | 'note'>('available');
   const [localAvail, setLocalAvail] = useState<Record<string, { date: string; status: AvailabilityStatus; note?: string }>>(
     myResponse?.availability || {}
   );
@@ -115,19 +115,29 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     currMonth = new Date(currMonth.getFullYear(), currMonth.getMonth() + 1, 1);
   }
 
-  // Paint interactions (FL Studio channel rack style toggle)
+  // Paint interactions (FL Studio channel rack style toggle, or note modal opener)
   const handleCellPointerDown = (dateKey: string) => {
     if (!isPaintMode) return;
+    if (brushTool === 'note') {
+      const myDay = localAvail[dateKey];
+      setNoteModal({
+        isOpen: true,
+        dateStr: dateKey,
+        status: myDay?.status || 'busy',
+        note: myDay?.note || '',
+      });
+      return;
+    }
     isPointerDown.current = true;
     const curStatus = localAvail[dateKey]?.status || 'busy';
-    // If cell is already on the brush state, toggle it back to 'busy'; otherwise set to brushStatus
-    const nextStatus: AvailabilityStatus = curStatus === brushStatus ? 'busy' : brushStatus;
+    // If cell is already on the brush state, toggle it back to 'busy'; otherwise set to brushTool
+    const nextStatus: AvailabilityStatus = curStatus === brushTool ? 'busy' : brushTool;
     activeDragStatus.current = nextStatus;
     paintDay(dateKey, nextStatus);
   };
 
   const handleCellPointerEnter = (dateKey: string) => {
-    if (!isPaintMode || !isPointerDown.current || !activeDragStatus.current) return;
+    if (!isPaintMode || !isPointerDown.current || !activeDragStatus.current || brushTool === 'note') return;
     paintDay(dateKey, activeDragStatus.current);
   };
 
@@ -242,9 +252,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                   </span>
                   <button
                     type="button"
-                    onClick={() => setBrushStatus('available')}
+                    onClick={() => setBrushTool('available')}
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                      brushStatus === 'available'
+                      brushTool === 'available'
                         ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/20'
                         : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
                     }`}
@@ -254,15 +264,27 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setBrushStatus('maybe')}
+                    onClick={() => setBrushTool('maybe')}
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                      brushStatus === 'maybe'
+                      brushTool === 'maybe'
                         ? 'bg-amber-500 text-white border-amber-500 shadow-xs ring-2 ring-amber-500/20'
                         : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
                     }`}
                   >
                     <HelpCircle className="w-3.5 h-3.5" />
                     <span>{t.brushMaybe}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBrushTool('note')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                      brushTool === 'note'
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-500/20'
+                        : 'bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100'
+                    }`}
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>{t.brushNote}</span>
                   </button>
                 </div>
               )}
@@ -327,7 +349,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
             <div className="flex items-center gap-2 text-xs text-zinc-600">
               <p className="text-[11px] font-medium text-zinc-500 flex items-center gap-1">
                 <Info className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                <span>{t.tapToEditHint}</span>
+                <span>{t.groupOverviewTapHint}</span>
               </p>
             </div>
           )}
@@ -336,10 +358,21 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
         {/* Dynamic Context Banners */}
         {currentParticipant && viewTab === 'paint' && (
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-50/90 border border-zinc-200/80 text-xs text-zinc-600 shadow-2xs">
-            <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>
-              <strong>{t.brushLabel}</strong> {t.clickOrDragHint}. {t.tapToEditHint}.
-            </span>
+            {brushTool === 'note' ? (
+              <>
+                <MessageSquare className="w-4 h-4 text-indigo-600 shrink-0" />
+                <span>
+                  <strong>{t.brushNote} :</strong> {t.noteToolBannerHint}
+                </span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>
+                  <strong>{t.brushLabel}</strong> {t.clickOrDragHint}. {t.noteToolHint}.
+                </span>
+              </>
+            )}
           </div>
         )}
 
@@ -445,34 +478,41 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                         key={dateKey}
                         onPointerDown={() => handleCellPointerDown(dateKey)}
                         onPointerEnter={() => handleCellPointerEnter(dateKey)}
-                        className={`min-h-[58px] sm:min-h-[66px] rounded-xl border flex flex-col items-center justify-between p-1.5 sm:p-2 transition-all cursor-pointer calendar-cell ${bgClass} active:scale-95`}
+                        className={`min-h-[58px] sm:min-h-[66px] rounded-xl border flex flex-col items-center justify-between p-1.5 sm:p-2 transition-all cursor-pointer calendar-cell ${bgClass} active:scale-95 ${
+                          brushTool === 'note' ? 'hover:ring-2 hover:ring-indigo-400' : ''
+                        }`}
                       >
                         <div className="w-full flex items-center justify-between">
                           <span className="text-xs font-bold leading-none">
                             {format(dayObj, 'd')}
                           </span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setNoteModal({
-                                isOpen: true,
-                                dateStr: dateKey,
-                                status,
-                                note: myDay?.note || '',
-                              });
-                            }}
-                            className={`p-1 rounded-lg transition-colors cursor-pointer ${
-                              hasNote
-                                ? status === 'available'
-                                  ? 'text-white bg-emerald-700/80 ring-1 ring-white/50'
-                                  : 'text-amber-950 bg-amber-500/50 ring-1 ring-amber-900/30'
-                                : 'text-zinc-400 hover:text-zinc-800 hover:bg-zinc-200/60'
-                            }`}
-                            title={hasNote ? `Note: ${myDay?.note}` : t.addNoteAction}
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                          </button>
+                          {hasNote && (
+                            <button
+                              type="button"
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onTouchStart={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setNoteModal({
+                                  isOpen: true,
+                                  dateStr: dateKey,
+                                  status,
+                                  note: myDay?.note || '',
+                                });
+                              }}
+                              className={`p-0.5 sm:p-1 rounded-md transition-transform hover:scale-110 cursor-pointer ${
+                                status === 'available'
+                                  ? 'text-white bg-emerald-700/80 ring-1 ring-white/40'
+                                  : status === 'maybe'
+                                  ? 'text-amber-950 bg-amber-500/60 ring-1 ring-amber-900/30'
+                                  : 'text-rose-900 bg-rose-200/80 ring-1 ring-rose-400/40'
+                              }`}
+                              title={`Note: ${myDay?.note}`}
+                            >
+                              <MessageSquare className="w-3 h-3" />
+                            </button>
+                          )}
                         </div>
                         <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-tight sm:tracking-normal opacity-90 leading-tight text-center">
                           {status === 'available' ? t.brushFree : status === 'maybe' ? t.brushMaybe : t.brushBusy}
@@ -504,35 +544,52 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                     }
                   }
 
+                  const handleSelectDay = () => {
+                    const summary: DaySummary = daySummary || {
+                      date: dateKey,
+                      availableCount: 0,
+                      maybeCount: 0,
+                      busyCount: 0,
+                      totalParticipants: total,
+                      score: 0,
+                      percentage: 0,
+                      notes: [],
+                      participants: [],
+                    };
+                    onSelectDayDetails(summary);
+                  };
+
                   return (
                     <button
                       key={dateKey}
                       type="button"
-                      onClick={() => daySummary && onSelectDayDetails(daySummary)}
+                      onClick={handleSelectDay}
                       className={`min-h-[58px] sm:min-h-[66px] rounded-xl border flex flex-col items-center justify-between p-2 transition-all text-left cursor-pointer calendar-cell ${cellColor} ${
                         isInSelectedWindow
                           ? 'ring-3 ring-indigo-500 ring-offset-2 scale-[1.03] z-10 shadow-md'
                           : 'hover:scale-[1.02]'
                       }`}
                     >
-                      {/* Top row: Date Number + 100% Sparkle OR subtle Amber Dot for Maybes */}
+                      {/* Top row: Date Number + Note icon if hasNotes + 100% Sparkle OR subtle Amber Dot for Maybes */}
                       <div className="w-full flex items-center justify-between">
                         <span className="text-xs font-bold leading-none">
                           {format(dayObj, 'd')}
                         </span>
-                        {is100Percent ? (
-                          <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300/30" />
-                        ) : maybeCount > 0 ? (
-                          <span
-                            className="w-2 h-2 rounded-full bg-amber-400 ring-1 ring-white/50 shrink-0"
-                            title={`${maybeCount} friend(s) marked maybe`}
-                          />
-                        ) : hasNotes ? (
-                          <span
-                            className="w-1.5 h-1.5 rounded-full bg-zinc-400 shrink-0"
-                            title="Has notes"
-                          />
-                        ) : null}
+                        <div className="flex items-center gap-1">
+                          {hasNotes && (
+                            <span title={t.chatNoteTooltip} className="inline-flex">
+                              <MessageSquare className="w-3 h-3 text-current opacity-80 shrink-0" />
+                            </span>
+                          )}
+                          {is100Percent ? (
+                            <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300/30 shrink-0" />
+                          ) : maybeCount > 0 ? (
+                            <span
+                              className="w-2 h-2 rounded-full bg-amber-400 ring-1 ring-white/50 shrink-0"
+                              title={`${maybeCount} friend(s) marked maybe`}
+                            />
+                          ) : null}
+                        </div>
                       </div>
 
                       {/* Bottom row: Clean fraction only (Zero visual clutter) */}
