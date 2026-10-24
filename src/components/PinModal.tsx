@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal } from './ui/Modal';
 import { Participant } from '../types';
-import { hashString, hashParticipantPin, generateRandomId } from '../utils/security';
+import { hashParticipantPin, generateRandomId } from '../utils/security';
 import { getParticipantColor } from '../utils/colors';
 import { StorageService } from '../services/storage';
 import { KeyRound, UserPlus, Lock } from 'lucide-react';
@@ -92,11 +92,14 @@ export const PinModal: React.FC<PinModalProps> = ({
           return;
         }
 
-        const saltedHash = await hashParticipantPin(eventId, p.id, pin.trim());
-        const legacyHash = await hashString(pin.trim());
+        const isValid = await StorageService.verifyParticipantPin(
+          eventId,
+          p.id,
+          pin.trim(),
+          p.pinHash
+        );
 
-        // Validate salted hash or legacy unsalted fallback
-        if (p.pinHash && p.pinHash !== saltedHash && p.pinHash !== legacyHash) {
+        if (!isValid) {
           setError('Incorrect PIN. If you forgot your PIN, ask the trip organizer to click "Reset PIN" for you.');
           setIsSubmitting(false);
           return;

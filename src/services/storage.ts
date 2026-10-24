@@ -1,5 +1,5 @@
 import { TripEvent, Participant, ParticipantResponse } from '../types';
-import { hashAdminKey, hashParticipantPin } from '../utils/security';
+import { hashAdminKey, hashParticipantPin, hashString } from '../utils/security';
 import { getDatesInRange } from '../utils/dateCalc';
 import { format } from 'date-fns';
 
@@ -40,7 +40,7 @@ export const StorageService = {
     return null;
   },
 
-  saveEvent(data: EventDataPackage, pushToCloud: boolean = true): void {
+  saveEvent(data: EventDataPackage, pushToCloud: boolean = true, adminKey?: string | null): void {
     try {
       localStorage.setItem(`${STORAGE_PREFIX}event_${data.event.id}`, JSON.stringify(data));
       // Only real user trips (never demo) are tracked in recent trips
@@ -55,20 +55,115 @@ export const StorageService = {
 
       if (pushToCloud) {
         // Full event initialization or admin update
-        this.pushEventToCloud(data);
+        this.pushEventToCloud(data, adminKey);
       }
     } catch (e) {
       console.error('Failed to save event to localStorage', e);
     }
   },
 
-  async pushEventToCloud(data: EventDataPackage): Promise<boolean> {
+  async pushEventToCloud(data: EventDataPackage, adminKey?: string | null): Promise<boolean> {
     if (data.event.id.startsWith('demo-')) return false;
     try {
       const res = await fetch('/api/event', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          adminKey: adminKey || undefined,
+        }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  async verifyAdminKey(eventId: string, adminKey: string, localHash?: string): Promise<boolean> {
+    if (eventId.startsWith('demo-')) {
+      const salted = await hashAdminKey(eventId, adminKey);
+      const legacy = await hashString(adminKey);
+      return salted === localHash || legacy === localHash;
+    }
+
+    try {
+      const res = await fetch('/api/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'verify_admin',
+          eventId,
+          adminKey,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json() as { valid?: boolean };
+        return !!data.valid;
+      }
+    } catch {
+      // Fallback to local check if offline
+      if (localHash) {
+        const salted = await hashAdminKey(eventId, adminKey);
+        const legacy = await hashString(adminKey);
+        return salted === localHash || legacy === localHash;
+      }
+    }
+    return false;
+  },
+
+  async verifyParticipantPin(
+    eventId: string,
+    participantId: string,
+    pin: string,
+    localHash?: string
+  ): Promise<boolean> {
+    if (eventId.startsWith('demo-')) {
+      return true;
+    }
+
+    try {
+      const res = await fetch('/api/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'verify_pin',
+          eventId,
+          participantId,
+          pin,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json() as { valid?: boolean };
+        return !!data.valid;
+      }
+    } catch {
+      if (localHash) {
+        const salted = await hashParticipantPin(eventId, participantId, pin);
+        const legacy = await hashString(pin);
+        return salted === localHash || legacy === localHash;
+      }
+    }
+    return false;
+  },
+
+  async resetParticipantPinInCloud(
+    eventId: string,
+    participantId: string,
+    newPin: string,
+    adminKey: string
+  ): Promise<boolean> {
+    if (eventId.startsWith('demo-')) return true;
+    try {
+      const res = await fetch('/api/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reset_pin',
+          eventId,
+          participantId,
+          newPin,
+          adminKey,
+        }),
       });
       return res.ok;
     } catch {

@@ -6,6 +6,8 @@ interface Env {
 }
 
 const SALT_PEPPER = 'vacay_salt_sec_2026';
+const ID_REGEX = /^[a-zA-Z0-9_-]{3,64}$/;
+const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 async function hashString(input: string): Promise<string> {
   const msgUint8 = new TextEncoder().encode(input.trim());
@@ -26,8 +28,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const url = new URL(context.request.url);
   const eventId = url.searchParams.get('id');
 
-  if (!eventId) {
-    return new Response(JSON.stringify({ error: 'Missing event ID' }), {
+  if (!eventId || !ID_REGEX.test(eventId)) {
+    return new Response(JSON.stringify({ error: 'Missing or invalid event ID' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -126,13 +128,101 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   }
 
   try {
-    const payload = await context.request.json() as any;
+    const rawBody = await context.request.text();
+    if (rawBody.length > 2_000_000) {
+      return new Response(JSON.stringify({ error: 'Payload too large' }), { status: 413 });
+    }
+
+    const payload = JSON.parse(rawBody);
     const ttl = 60 * 60 * 24 * 90; // 90 days retention
 
-    // CASE A: Concurrency-Safe Participant Delta Save
+    // CASE 1: Server-Side Admin Key Verification
+    if (payload.action === 'verify_admin') {
+      const { eventId, adminKey } = payload;
+      if (!eventId || !adminKey || !ID_REGEX.test(eventId)) {
+        return new Response(JSON.stringify({ valid: false }), { status: 400 });
+      }
+
+      const metaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);
+      if (!metaRaw) {
+        return new Response(JSON.stringify({ valid: false }), { status: 404 });
+      }
+
+      const meta = JSON.parse(metaRaw);
+      const computedAdminHash = await hashAdminKey(eventId, adminKey);
+      const legacyAdminHash = await hashString(adminKey);
+      const valid = meta.adminKeyHash === computedAdminHash || meta.adminKeyHash === legacyAdminHash;
+
+      return new Response(JSON.stringify({ valid }), {
+        status: valid ? 200 : 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // CASE 2: Server-Side Participant PIN Verification
+    if (payload.action === 'verify_pin') {
+      const { eventId, participantId, pin } = payload;
+      if (!eventId || !participantId || !pin || !ID_REGEX.test(eventId)) {
+        return new Response(JSON.stringify({ valid: false }), { status: 400 });
+      }
+
+      const partsRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
+      if (!partsRaw) {
+        return new Response(JSON.stringify({ valid: false }), { status: 404 });
+      }
+
+      const parts = JSON.parse(partsRaw);
+      const p = parts.find((x: any) => x.id === participantId);
+      if (!p) {
+        return new Response(JSON.stringify({ valid: false }), { status: 404 });
+      }
+
+      const computedPinHash = await hashParticipantPin(eventId, participantId, pin);
+      const legacyPinHash = await hashString(pin);
+      const valid = !p.pinHash || p.pinHash === computedPinHash || p.pinHash === legacyPinHash;
+
+      return new Response(JSON.stringify({ valid }), {
+        status: valid ? 200 : 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // CASE 3: Organizer Resets Participant PIN
+    if (payload.action === 'reset_pin') {
+      const { eventId, participantId, newPin, adminKey } = payload;
+      if (!eventId || !participantId || !newPin || !adminKey || !ID_REGEX.test(eventId)) {
+        return new Response(JSON.stringify({ error: 'Missing parameters' }), { status: 400 });
+      }
+
+      const metaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);
+      if (!metaRaw) return new Response(JSON.stringify({ notFound: true }), { status: 404 });
+
+      const meta = JSON.parse(metaRaw);
+      const computedAdminHash = await hashAdminKey(eventId, adminKey);
+      const legacyAdminHash = await hashString(adminKey);
+      if (meta.adminKeyHash !== computedAdminHash && meta.adminKeyHash !== legacyAdminHash) {
+        return new Response(JSON.stringify({ error: 'Unauthorized: Invalid admin key' }), { status: 401 });
+      }
+
+      const partsRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
+      if (partsRaw) {
+        const parts = JSON.parse(partsRaw);
+        const pinHash = await hashParticipantPin(eventId, participantId, newPin);
+        const updatedParts = parts.map((part: any) =>
+          part.id === participantId ? { ...part, pinHash } : part
+        );
+        await context.env.VACAY_KV.put(`event:${eventId}:participants`, JSON.stringify(updatedParts), { expirationTtl: ttl });
+      }
+
+      return new Response(JSON.stringify({ success: true, participantId }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // CASE 4: Concurrency-Safe Participant Delta Save
     if (payload.action === 'save_response') {
       const { eventId, participant, response, pin } = payload;
-      if (!eventId || !participant?.id || !response) {
+      if (!eventId || !participant?.id || !response || !ID_REGEX.test(eventId)) {
         return new Response(JSON.stringify({ error: 'Incomplete delta payload' }), { status: 400 });
       }
 
@@ -153,14 +243,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const computedHash = pin ? await hashParticipantPin(eventId, participant.id, pin) : '';
 
       if (existing) {
-        // If participant exists, check hash match
+        // If participant exists and has a pinHash, enforce pin match
         if (existing.pinHash && existing.pinHash !== computedHash) {
-          return new Response(JSON.stringify({ error: 'Incorrect PIN' }), { status: 401 });
+          const legacyHash = pin ? await hashString(pin) : '';
+          if (existing.pinHash !== legacyHash) {
+            return new Response(JSON.stringify({ error: 'Incorrect PIN' }), { status: 401 });
+          }
         }
       } else {
         // Register new participant in index
         participants.push({
           ...participant,
+          name: (participant.name || 'Friend').slice(0, 50),
           pinHash: computedHash || participant.pinHash,
         });
         await context.env.VACAY_KV.put(
@@ -182,10 +276,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       });
     }
 
-    // CASE B: Event Deletion (Organizer only)
+    // CASE 5: Event Deletion (Organizer only)
     if (payload.action === 'delete_event') {
       const { eventId, adminKey } = payload;
-      if (!eventId || !adminKey) {
+      if (!eventId || !adminKey || !ID_REGEX.test(eventId)) {
         return new Response(JSON.stringify({ error: 'Missing event ID or admin key' }), { status: 400 });
       }
 
@@ -222,10 +316,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       });
     }
 
-    // CASE C: Participant Deletion (Organizer only)
+    // CASE 6: Participant Deletion (Organizer only)
     if (payload.action === 'delete_participant') {
       const { eventId, participantId, adminKey } = payload;
-      if (!eventId || !participantId || !adminKey) {
+      if (!eventId || !participantId || !adminKey || !ID_REGEX.test(eventId)) {
         return new Response(JSON.stringify({ error: 'Missing parameters' }), { status: 400 });
       }
 
@@ -254,18 +348,60 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       });
     }
 
-    // CASE D: Event Creation / Organizer Settings Update
+    // CASE 7: Event Creation / Organizer Settings Update
     const eventId = payload?.event?.id;
-    if (!eventId) {
-      return new Response(JSON.stringify({ error: 'Invalid payload: missing event id' }), { status: 400 });
+    if (!eventId || !ID_REGEX.test(eventId)) {
+      return new Response(JSON.stringify({ error: 'Invalid payload: missing or invalid event id' }), { status: 400 });
     }
 
-    // Save event metadata
-    await context.env.VACAY_KV.put(
-      `event:${eventId}:meta`,
-      JSON.stringify(payload.event),
-      { expirationTtl: ttl }
-    );
+    // Check if event already exists in KV
+    const existingMetaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);
+
+    if (existingMetaRaw) {
+      // Event already exists -> THIS IS AN UPDATE. Require and verify adminKey!
+      const existingMeta = JSON.parse(existingMetaRaw);
+      const providedAdminKey = payload.adminKey || payload.event.adminKey;
+
+      if (!providedAdminKey) {
+        return new Response(JSON.stringify({ error: 'Unauthorized: Missing organizer admin key to update poll settings' }), { status: 401 });
+      }
+
+      const computedAdminHash = await hashAdminKey(eventId, providedAdminKey);
+      const legacyAdminHash = await hashString(providedAdminKey);
+
+      if (existingMeta.adminKeyHash !== computedAdminHash && existingMeta.adminKeyHash !== legacyAdminHash) {
+        return new Response(JSON.stringify({ error: 'Unauthorized: Invalid organizer admin key' }), { status: 401 });
+      }
+
+      // Update event metadata while preserving the authoritative adminKeyHash
+      const updatedMeta = {
+        ...existingMeta,
+        ...payload.event,
+        adminKeyHash: existingMeta.adminKeyHash, // Never overwrite the secret hash
+        updatedAt: new Date().toISOString(),
+      };
+
+      await context.env.VACAY_KV.put(
+        `event:${eventId}:meta`,
+        JSON.stringify(updatedMeta),
+        { expirationTtl: ttl }
+      );
+    } else {
+      // Event does not exist -> THIS IS A NEW EVENT CREATION.
+      if (!payload.event.adminKeyHash) {
+        return new Response(JSON.stringify({ error: 'Invalid event creation: missing adminKeyHash' }), { status: 400 });
+      }
+
+      await context.env.VACAY_KV.put(
+        `event:${eventId}:meta`,
+        JSON.stringify({
+          ...payload.event,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }),
+        { expirationTtl: ttl }
+      );
+    }
 
     // Save participant index (smart merge to prevent clobbering concurrent registrations)
     if (payload.participants && Array.isArray(payload.participants)) {
@@ -327,8 +463,8 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
     return new Response(JSON.stringify({ error: 'KV not configured' }), { status: 503 });
   }
 
-  if (!eventId || !adminKey) {
-    return new Response(JSON.stringify({ error: 'Missing event ID or admin key' }), { status: 400 });
+  if (!eventId || !adminKey || !ID_REGEX.test(eventId)) {
+    return new Response(JSON.stringify({ error: 'Missing or invalid event ID or admin key' }), { status: 400 });
   }
 
   const metaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);

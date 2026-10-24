@@ -88,7 +88,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       data.participants = data.participants.map(part =>
         part.id === p.id ? { ...part, pinHash } : part
       );
-      StorageService.saveEvent(data);
+      StorageService.saveEvent(data, false);
+    }
+    if (adminKey) {
+      await StorageService.resetParticipantPinInCloud(event.id, p.id, tempPin, adminKey);
     }
     setPinResetNotice({ name: p.name, tempPin });
   };

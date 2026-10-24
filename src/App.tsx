@@ -13,7 +13,6 @@ import {
   getDatesInRange,
   formatWindowRange,
 } from './utils/dateCalc';
-import { hashString, hashAdminKey } from './utils/security';
 import {
   StorageService,
   createDemoEvent,
@@ -93,9 +92,8 @@ export default function App() {
       const storedAdminKey = StorageService.getAdminKey(eventId);
       const activeAdminKey = adminParam || storedAdminKey;
       if (activeAdminKey) {
-        const saltedHash = await hashAdminKey(data.event.id, activeAdminKey);
-        const legacyHash = await hashString(activeAdminKey);
-        if (saltedHash === data.event.adminKeyHash || legacyHash === data.event.adminKeyHash) {
+        const isValid = await StorageService.verifyAdminKey(data.event.id, activeAdminKey, data.event.adminKeyHash);
+        if (isValid) {
           setIsAdmin(true);
           setAdminKey(activeAdminKey);
           StorageService.saveAdminKey(eventId, activeAdminKey);
@@ -326,9 +324,12 @@ export default function App() {
 
   const handleVerifyAdmin = async (keyInput: string) => {
     if (!eventData) return false;
-    const saltedHash = await hashAdminKey(eventData.event.id, keyInput);
-    const legacyHash = await hashString(keyInput);
-    if (saltedHash === eventData.event.adminKeyHash || legacyHash === eventData.event.adminKeyHash) {
+    const isValid = await StorageService.verifyAdminKey(
+      eventData.event.id,
+      keyInput,
+      eventData.event.adminKeyHash
+    );
+    if (isValid) {
       setIsAdmin(true);
       setAdminKey(keyInput);
       StorageService.saveAdminKey(eventData.event.id, keyInput);
@@ -348,7 +349,7 @@ export default function App() {
       },
     };
     setEventData(updated);
-    StorageService.saveEvent(updated);
+    StorageService.saveEvent(updated, true, adminKey);
   };
 
   const handleDeleteParticipant = async (participantId: string) => {
