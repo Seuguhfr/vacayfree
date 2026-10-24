@@ -174,7 +174,6 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
 
           {/* Prominent Quick-Select Chips with Active State Highlight */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-semibold text-zinc-500">{t.quickPresetsLabel}</span>
             <button
               type="button"
               onClick={() => handleQuickDates('summer')}
@@ -347,9 +346,6 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
               />
             </div>
           </div>
-          <p className="text-[11px] text-zinc-500">
-            {t.pinHelpText}
-          </p>
         </div>
 
         {/* Submit */}

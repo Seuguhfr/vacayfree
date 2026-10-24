@@ -62,11 +62,10 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={onGoHome}
-                className="inline-flex items-center justify-center p-1.5 sm:px-3 sm:py-1.5 rounded-xl text-xs sm:text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer"
+                className="inline-flex items-center justify-center p-1.5 sm:p-2 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer"
                 title={t.home}
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">{t.home}</span>
               </button>
 
               <button

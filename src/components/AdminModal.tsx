@@ -107,9 +107,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     >
       {!isAdmin ? (
         <form onSubmit={handleVerify} className="space-y-4">
-          <p className="text-xs text-zinc-600">
-            {t.adminLinkSaveWarning}
-          </p>
           {keyError && (
             <div className="p-2.5 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg">
               {keyError}

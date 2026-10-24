@@ -211,9 +211,6 @@ export const PinModal: React.FC<PinModalProps> = ({
             placeholder={t.pinPlaceholder}
             className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-left focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
           />
-          <p className="text-[11px] text-zinc-500 mt-1">
-            {t.pinSubtext}
-          </p>
         </div>
 
         <div className="pt-2">
