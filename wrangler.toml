@@ -1,0 +1,10 @@
+name = "vacayfree"
+compatibility_date = "2026-01-01"
+pages_build_output_dir = "./dist"
+
+# Optional: To enable persistent cross-device edge syncing for your friends,
+# create a KV namespace with `npx wrangler kv namespace create VACAY_KV`
+# and paste the id below:
+# [[kv_namespaces]]
+# binding = "VACAY_KV"
+# id = "<your-kv-id>"
