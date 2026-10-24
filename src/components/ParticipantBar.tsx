@@ -52,27 +52,30 @@ export const ParticipantBar: React.FC<ParticipantBarProps> = ({
         </div>
 
         {/* Right Action / Active User State */}
-        <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+        <div className="flex items-center gap-2 self-start sm:self-center shrink-0 max-w-full">
           {currentParticipant ? (
-            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200/80 px-3 py-1.5 rounded-xl">
-              <span className={`w-6 h-6 rounded-full ${currentParticipant.color} text-white font-bold text-[10px] flex items-center justify-center`}>
-                {currentParticipant.name.slice(0, 2).toUpperCase()}
-              </span>
-              <div className="text-left">
-                <span className="text-xs font-bold text-emerald-950 block leading-tight">
-                  {currentParticipant.name}
+            <div className="flex items-center justify-between sm:justify-start gap-2 bg-emerald-50/90 border border-emerald-200/90 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl shadow-2xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full ${currentParticipant.color} text-white font-bold text-[9px] sm:text-[10px] flex items-center justify-center shrink-0`}>
+                  {currentParticipant.name.slice(0, 2).toUpperCase()}
                 </span>
-                <span className="text-[10px] text-emerald-700 font-medium">
-                  {t.editingMode}
-                </span>
+                <div className="text-left min-w-0">
+                  <span className="text-xs font-bold text-emerald-950 block leading-tight truncate max-w-[110px] sm:max-w-[160px]">
+                    {currentParticipant.name}
+                  </span>
+                  <span className="text-[10px] text-emerald-700 font-medium leading-none block">
+                    {t.editingMode}
+                  </span>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={onLogoutParticipant}
-                className="ml-2 p-1 rounded-lg text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 ml-1 sm:ml-2 px-2 py-1 rounded-lg text-[11px] font-semibold bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs hover:border-emerald-300 transition-all cursor-pointer shrink-0"
                 title={t.switchFriendTooltip}
               >
-                <LogOut className="w-3.5 h-3.5" />
+                <LogOut className="w-3 h-3 text-emerald-700 shrink-0" />
+                <span>{t.exitEditModeBtn}</span>
               </button>
             </div>
           ) : (

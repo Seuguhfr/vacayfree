@@ -270,13 +270,17 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               </button>
             </div>
 
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-xs text-emerald-600 font-semibold">
-                {saveSuccess ? `✓ ${t.savedSuccessToast}` : ''}
-              </span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
+              {saveSuccess ? (
+                <span className="text-xs text-emerald-600 font-semibold text-center sm:text-left order-2 sm:order-1">
+                  ✓ {t.savedSuccessToast}
+                </span>
+              ) : (
+                <div className="hidden sm:block" />
+              )}
               <button
                 type="submit"
-                className="px-4 py-2 rounded-xl text-xs font-semibold bg-zinc-900 text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-xs font-semibold bg-zinc-900 text-white hover:bg-zinc-800 transition-colors cursor-pointer text-center shrink-0 order-1 sm:order-2"
               >
                 {t.saveChangesBtn}
               </button>

@@ -42,6 +42,7 @@ export const fr: TranslationDictionary = {
   // Participant Bar / Poll Overview
   editingMode: 'Mode modification',
   switchFriendTooltip: 'Changer d’ami / Quitter le mode édition',
+  exitEditModeBtn: 'Quitter',
   addYourDates: '+ Ajouter mes dates',
   groupOverview: (count: number) =>
     count === 1
@@ -280,6 +281,7 @@ export const en: TranslationDictionary = {
   // Participant Bar / Poll Overview
   editingMode: 'Editing Mode',
   switchFriendTooltip: 'Switch friend / Exit edit mode',
+  exitEditModeBtn: 'Exit',
   addYourDates: '+ Add Your Dates',
   groupOverview: (count: number) =>
     count === 1

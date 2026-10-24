@@ -37,6 +37,7 @@ export interface TranslationDictionary {
   // Participant Bar / Poll Overview
   editingMode: string;
   switchFriendTooltip: string;
+  exitEditModeBtn: string;
   addYourDates: string;
   groupOverview: (count: number) => string;
   noResponsesYet: string;

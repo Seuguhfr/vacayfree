@@ -29,6 +29,8 @@ export const Modal: React.FC<ModalProps> = ({
       if (!dialog.open) {
         dialog.showModal();
       }
+      // Focus modal container itself on mount rather than close button
+      dialog.focus();
     } else {
       if (dialog.open) {
         dialog.close();
@@ -74,11 +76,12 @@ export const Modal: React.FC<ModalProps> = ({
   return (
     <dialog
       ref={dialogRef}
+      tabIndex={-1}
       onCancel={handleCancel}
       onClick={handleBackdropClick}
       {...({ closedby: 'any' } as Record<string, string>)}
       aria-labelledby={titleId}
-      className="fixed inset-0 m-auto w-[92vw] sm:w-full p-0 rounded-2xl bg-white text-zinc-900 shadow-2xl border border-zinc-200/90 outline-none max-h-[90dvh] flex flex-col overflow-x-hidden"
+      className="fixed inset-0 m-auto w-[92vw] sm:w-full p-0 rounded-2xl bg-white text-zinc-900 shadow-2xl border border-zinc-200/90 outline-none focus:outline-none max-h-[90dvh] flex flex-col overflow-x-hidden"
       style={{
         maxWidth: maxW,
         backgroundColor: '#ffffff',
@@ -92,7 +95,7 @@ export const Modal: React.FC<ModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors cursor-pointer"
+            className="rounded-lg p-1.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
             aria-label="Close dialog"
           >
             <X className="w-5 h-5" />
