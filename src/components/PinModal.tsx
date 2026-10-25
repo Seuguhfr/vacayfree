@@ -43,7 +43,8 @@ export const PinModal: React.FC<PinModalProps> = ({
     e.preventDefault();
     setError(null);
 
-    if (pin.trim().length < 4) {
+    const cleanPin = pin.trim();
+    if (cleanPin.length !== 4 || !/^\d{4}$/.test(cleanPin)) {
       setError(t.errorPinDigits);
       return;
     }
@@ -205,9 +206,11 @@ export const PinModal: React.FC<PinModalProps> = ({
           <input
             type="password"
             required
-            maxLength={8}
+            maxLength={4}
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={pin}
-            onChange={(e) => setPin(e.target.value)}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
             placeholder={t.pinPlaceholder}
             className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-left focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
           />

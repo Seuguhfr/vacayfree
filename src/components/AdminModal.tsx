@@ -120,8 +120,17 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               <input
                 type="password"
                 required
+                maxLength={32}
+                inputMode="numeric"
                 value={inputKey}
-                onChange={(e) => setInputKey(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value.trim();
+                  if (/^\d*$/.test(val)) {
+                    setInputKey(val.slice(0, 4));
+                  } else {
+                    setInputKey(val.slice(0, 32));
+                  }
+                }}
                 placeholder={t.adminKeyPlaceholder}
                 className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-zinc-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
               />

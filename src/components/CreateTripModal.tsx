@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal } from './ui/Modal';
 import { TripEvent, Participant } from '../types';
-import { generateAdminKey, hashAdminKey, hashParticipantPin, generateRandomId } from '../utils/security';
+import { hashAdminKey, hashParticipantPin, generateRandomId } from '../utils/security';
 import { getParticipantColor } from '../utils/colors';
 import { StorageService } from '../services/storage';
 import { useTranslation } from '../i18n/LanguageContext';
@@ -72,11 +72,21 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       setError(t.errorDurationMin);
       return;
     }
+    if (!creatorName.trim()) {
+      setError(t.errorNameRequired);
+      return;
+    }
+    const cleanPin = creatorPin.trim();
+    if (cleanPin.length !== 4 || !/^\d{4}$/.test(cleanPin)) {
+      setError(t.errorPinDigits);
+      return;
+    }
 
     setIsSubmitting(true);
     try {
       const eventId = `trip-${generateRandomId(8)}`;
-      const adminKey = generateAdminKey();
+      // Unified admin authentication: organizer's 4-digit PIN IS the admin key
+      const adminKey = cleanPin;
       const adminKeyHash = await hashAdminKey(eventId, adminKey);
 
       const event: TripEvent = {
@@ -93,22 +103,19 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       };
 
       const participants: Participant[] = [];
-      if (creatorName.trim()) {
-        const pin = creatorPin.trim() || '1234';
-        const participantId = `p-${generateRandomId(6)}`;
-        const pinHash = await hashParticipantPin(eventId, participantId, pin);
-        const color = getParticipantColor(creatorName.trim(), 0).bg;
-        const creatorParticipant: Participant = {
-          id: participantId,
-          eventId,
-          name: creatorName.trim(),
-          pinHash,
-          color,
-          createdAt: new Date().toISOString(),
-        };
-        participants.push(creatorParticipant);
-        StorageService.saveParticipantSession(eventId, participantId, pin);
-      }
+      const participantId = `p-${generateRandomId(6)}`;
+      const pinHash = await hashParticipantPin(eventId, participantId, cleanPin);
+      const color = getParticipantColor(creatorName.trim(), 0).bg;
+      const creatorParticipant: Participant = {
+        id: participantId,
+        eventId,
+        name: creatorName.trim(),
+        pinHash,
+        color,
+        createdAt: new Date().toISOString(),
+      };
+      participants.push(creatorParticipant);
+      StorageService.saveParticipantSession(eventId, participantId, cleanPin);
 
       StorageService.saveEvent({
         event,
@@ -327,6 +334,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
             <div>
               <input
                 type="text"
+                required
                 value={creatorName}
                 onChange={(e) => setCreatorName(e.target.value)}
                 placeholder={t.yourNamePlaceholder}
@@ -336,6 +344,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
             <div>
               <input
                 type="password"
+                required
                 maxLength={4}
                 inputMode="numeric"
                 pattern="[0-9]*"
