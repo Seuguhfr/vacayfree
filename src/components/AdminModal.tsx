@@ -4,7 +4,7 @@ import { TripEvent, Participant } from '../types';
 import { hashParticipantPin } from '../utils/security';
 import { StorageService } from '../services/storage';
 import { useTranslation } from '../i18n/LanguageContext';
-import { ShieldCheck, Lock, Unlock, Trash2, KeyRound, Copy, Check } from 'lucide-react';
+import { Lock, Unlock, Trash2, KeyRound } from 'lucide-react';
 
 interface AdminModalProps {
   isOpen: boolean;
@@ -43,18 +43,18 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [endDate, setEndDate] = useState(event.endDate);
   const [isLocked, setIsLocked] = useState(event.isLocked);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [copiedAdminUrl, setCopiedAdminUrl] = useState(false);
   const [pinResetNotice, setPinResetNotice] = useState<{ name: string; tempPin: string } | null>(null);
-
-  // Organizer Admin URL
-  const baseUrl = window.location.origin + window.location.pathname;
-  const adminUrl = adminKey ? `${baseUrl}?event=${event.id}&admin=${adminKey}` : null;
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setKeyError(null);
+    const clean = inputKey.trim();
+    if (!/^\d{4}$/.test(clean)) {
+      setKeyError(t.errorPinDigits);
+      return;
+    }
     setIsVerifying(true);
-    const valid = await onVerifyAdmin(inputKey.trim());
+    const valid = await onVerifyAdmin(clean);
     setIsVerifying(false);
     if (!valid) {
       setKeyError(t.invalidAdminKeyError);
@@ -120,16 +120,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               <input
                 type="password"
                 required
-                maxLength={32}
+                maxLength={4}
                 inputMode="numeric"
+                pattern="[0-9]*"
                 value={inputKey}
                 onChange={(e) => {
-                  const val = e.target.value.trim();
-                  if (/^\d*$/.test(val)) {
-                    setInputKey(val.slice(0, 4));
-                  } else {
-                    setInputKey(val.slice(0, 32));
-                  }
+                  setInputKey(e.target.value.replace(/\D/g, '').slice(0, 4));
                 }}
                 placeholder={t.adminKeyPlaceholder}
                 className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-zinc-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
@@ -146,41 +142,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         </form>
       ) : (
         <div className="space-y-5">
-          {/* Organizer Key Card (Kept safe from share modal) */}
-          {adminUrl && (
-            <div className="p-3.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-950 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold flex items-center gap-1.5 text-amber-900">
-                  <ShieldCheck className="w-4 h-4 text-amber-700" />
-                  {t.adminAccessGranted}
-                </span>
-              </div>
-              <p className="text-[11px] text-amber-800 leading-tight">
-                {t.adminLinkSaveWarning}
-              </p>
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="text"
-                  readOnly
-                  value={adminUrl}
-                  className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg border border-amber-300/80 bg-white text-xs font-mono select-all focus:outline-none text-zinc-800"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(adminUrl);
-                    setCopiedAdminUrl(true);
-                    setTimeout(() => setCopiedAdminUrl(false), 2000);
-                  }}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-700 text-white hover:bg-amber-800 cursor-pointer shrink-0"
-                >
-                  {copiedAdminUrl ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedAdminUrl ? t.copiedBtn : t.copyBtn}</span>
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Temporary PIN Reset Notification */}
           {pinResetNotice && (
             <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 flex items-center justify-between">

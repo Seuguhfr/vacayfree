@@ -168,10 +168,6 @@ export interface TranslationDictionary {
   verifyAndUnlockBtn: string;
   verifyingBtn: string;
   invalidAdminKeyError: string;
-  adminAccessGranted: string;
-  adminLinkSaveWarning: string;
-  copyAdminLinkBtn: string;
-  copiedAdminLinkBtn: string;
   pollStatusTitle: string;
   pollLockedStatus: string;
   pollOpenStatus: string;

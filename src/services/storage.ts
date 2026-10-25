@@ -1,5 +1,5 @@
 import { TripEvent, Participant, ParticipantResponse } from '../types';
-import { hashAdminKey, hashParticipantPin, hashString } from '../utils/security';
+import { hashAdminKey, hashParticipantPin } from '../utils/security';
 import { getDatesInRange } from '../utils/dateCalc';
 import { format } from 'date-fns';
 
@@ -111,10 +111,9 @@ export const StorageService = {
 
   async verifyAdminKey(eventId: string, adminKey: string, localHash?: string): Promise<boolean> {
     if (eventId.startsWith('demo-')) {
-      if (adminKey === '1234' || adminKey === 'super-secret-demo-admin') return true;
+      if (adminKey === '1234') return true;
       const salted = await hashAdminKey(eventId, adminKey);
-      const legacy = await hashString(adminKey);
-      return salted === localHash || legacy === localHash;
+      return salted === localHash;
     }
 
     try {
@@ -135,8 +134,7 @@ export const StorageService = {
       // Fallback to local check if offline
       if (localHash) {
         const salted = await hashAdminKey(eventId, adminKey);
-        const legacy = await hashString(adminKey);
-        return salted === localHash || legacy === localHash;
+        return salted === localHash;
       }
     }
     return false;
@@ -170,8 +168,7 @@ export const StorageService = {
     } catch {
       if (localHash) {
         const salted = await hashParticipantPin(eventId, participantId, pin);
-        const legacy = await hashString(pin);
-        return salted === localHash || legacy === localHash;
+        return salted === localHash;
       }
     }
     return false;
@@ -371,7 +368,7 @@ export const StorageService = {
  * Creates seed demo data using 100% timezone-safe date-fns parsing
  */
 export async function createDemoEvent(): Promise<EventDataPackage> {
-  const adminKey = 'super-secret-demo-admin';
+  const adminKey = '1234';
   const eventId = 'demo-summer-trip';
   const adminKeyHash = await hashAdminKey(eventId, adminKey);
 

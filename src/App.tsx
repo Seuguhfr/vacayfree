@@ -106,6 +106,19 @@ export default function App() {
         }
       }
 
+      // If URL contained an adminParam, scrub it immediately to prevent accidental credential sharing
+      if (adminParam) {
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('admin');
+        const hashParams = new URLSearchParams(cleanUrl.hash.replace(/^#/, ''));
+        if (hashParams.has('admin')) {
+          hashParams.delete('admin');
+          const remainingHash = hashParams.toString();
+          cleanUrl.hash = remainingHash ? `#${remainingHash}` : '';
+        }
+        window.history.replaceState(null, '', cleanUrl.pathname + (cleanUrl.search ? cleanUrl.search : '') + cleanUrl.hash);
+      }
+
       // Check active participant session or user param
       const session = StorageService.getParticipantSession(eventId);
       const targetUserId = userParam || session?.participantId;
@@ -235,8 +248,7 @@ export default function App() {
 
   const handleOpenRecentTrip = (eventId: string) => {
     const adminKey = StorageService.getAdminKey(eventId);
-    const targetUrl = adminKey ? `?event=${eventId}&admin=${adminKey}` : `?event=${eventId}`;
-    window.history.pushState(null, '', targetUrl);
+    window.history.pushState(null, '', `?event=${eventId}`);
     loadEvent(eventId, adminKey);
   };
 
@@ -247,12 +259,12 @@ export default function App() {
 
   const handleLoadDemo = async () => {
     const demo = await createDemoEvent();
-    window.history.pushState(null, '', `?event=${demo.event.id}&admin=super-secret-demo-admin`);
-    loadEvent(demo.event.id, 'super-secret-demo-admin');
+    window.history.pushState(null, '', `?event=${demo.event.id}`);
+    loadEvent(demo.event.id, '1234');
   };
 
   const handleTripCreated = (eventId: string, key: string) => {
-    window.history.pushState(null, '', `?event=${eventId}&admin=${key}`);
+    window.history.pushState(null, '', `?event=${eventId}`);
     loadEvent(eventId, key);
     setRecentTrips(StorageService.getRecentEventPackages());
   };

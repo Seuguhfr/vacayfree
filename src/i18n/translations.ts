@@ -189,11 +189,6 @@ export const fr: TranslationDictionary = {
   verifyAndUnlockBtn: 'Déverrouiller l’accès',
   verifyingBtn: 'Vérification...',
   invalidAdminKeyError: 'Code PIN incorrect.',
-  adminAccessGranted: 'Accès Organisateur Déverrouillé',
-  adminLinkSaveWarning:
-    'Lien privé pour gérer ce sondage sans ressaisir votre code PIN :',
-  copyAdminLinkBtn: 'Copier mon lien d’accès complet',
-  copiedAdminLinkBtn: 'Lien administrateur copié !',
   pollStatusTitle: 'État du sondage',
   pollLockedStatus: 'Sondage verrouillé (votes clos)',
   pollOpenStatus: 'Sondage ouvert aux votes',
@@ -426,11 +421,6 @@ export const en: TranslationDictionary = {
   verifyAndUnlockBtn: 'Unlock Controls',
   verifyingBtn: 'Verifying...',
   invalidAdminKeyError: 'Incorrect PIN.',
-  adminAccessGranted: 'Organizer Admin Unlocked',
-  adminLinkSaveWarning:
-    'Private link to manage this poll without re-entering your PIN:',
-  copyAdminLinkBtn: 'Copy Secret Admin Link',
-  copiedAdminLinkBtn: 'Admin Link Copied!',
   pollStatusTitle: 'Poll Voting Status',
   pollLockedStatus: 'Poll is Locked (Voting Closed)',
   pollOpenStatus: 'Poll is Open for Responses',

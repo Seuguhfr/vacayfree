@@ -44,25 +44,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   try {
     // 1. Fetch metadata
     const metaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);
-    let event: any = null;
-
-    if (metaRaw) {
-      event = JSON.parse(metaRaw);
-    } else {
-      // Legacy fallback check
-      const legacyRaw = await context.env.VACAY_KV.get(`event_${eventId}`);
-      if (legacyRaw) {
-        const legacy = JSON.parse(legacyRaw);
-        event = legacy.event;
-      }
-    }
-
-    if (!event) {
+    if (!metaRaw) {
       return new Response(JSON.stringify({ notFound: true }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' },
       });
     }
+
+    const event = JSON.parse(metaRaw);
 
     // 2. Concurrently fetch participants using discrete keys + legacy index
     const [partKeyList, participantsIndexRaw] = await Promise.all([
@@ -178,8 +167,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
       const meta = JSON.parse(metaRaw);
       const computedAdminHash = await hashAdminKey(eventId, adminKey);
-      const legacyAdminHash = await hashString(adminKey);
-      const valid = meta.adminKeyHash === computedAdminHash || meta.adminKeyHash === legacyAdminHash;
+      const valid = meta.adminKeyHash === computedAdminHash;
 
       return new Response(JSON.stringify({ valid }), {
         status: valid ? 200 : 401,
@@ -212,8 +200,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
 
       const computedPinHash = await hashParticipantPin(eventId, participantId, pin);
-      const legacyPinHash = await hashString(pin);
-      const valid = !p.pinHash || p.pinHash === computedPinHash || p.pinHash === legacyPinHash;
+      const valid = !p.pinHash || p.pinHash === computedPinHash;
 
       return new Response(JSON.stringify({ valid }), {
         status: valid ? 200 : 401,
@@ -233,8 +220,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
       const meta = JSON.parse(metaRaw);
       const computedAdminHash = await hashAdminKey(eventId, adminKey);
-      const legacyAdminHash = await hashString(adminKey);
-      if (meta.adminKeyHash !== computedAdminHash && meta.adminKeyHash !== legacyAdminHash) {
+      if (meta.adminKeyHash !== computedAdminHash) {
         return new Response(JSON.stringify({ error: 'Unauthorized: Invalid admin key' }), { status: 401 });
       }
 
@@ -298,10 +284,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       if (existing) {
         // Enforce PIN validation if returning user
         if (existing.pinHash && existing.pinHash !== computedHash) {
-          const legacyHash = pin ? await hashString(pin) : '';
-          if (existing.pinHash !== legacyHash) {
-            return new Response(JSON.stringify({ error: 'Incorrect PIN' }), { status: 401 });
-          }
+          return new Response(JSON.stringify({ error: 'Incorrect PIN' }), { status: 401 });
         }
       }
 
@@ -345,9 +328,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
       const meta = JSON.parse(metaRaw);
       const computedAdminHash = await hashAdminKey(eventId, adminKey);
-      const legacyAdminHash = await hashString(adminKey);
 
-      if (meta.adminKeyHash !== computedAdminHash && meta.adminKeyHash !== legacyAdminHash) {
+      if (meta.adminKeyHash !== computedAdminHash) {
         return new Response(JSON.stringify({ error: 'Unauthorized: Invalid admin key' }), { status: 401 });
       }
 
@@ -360,7 +342,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const delPromises: Promise<any>[] = [
         context.env.VACAY_KV.delete(`event:${eventId}:meta`),
         context.env.VACAY_KV.delete(`event:${eventId}:participants`),
-        context.env.VACAY_KV.delete(`event_${eventId}`),
       ];
 
       for (const k of partKeys.keys) delPromises.push(context.env.VACAY_KV.delete(k.name));
@@ -387,8 +368,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
       const meta = JSON.parse(metaRaw);
       const computedAdminHash = await hashAdminKey(eventId, adminKey);
-      const legacyAdminHash = await hashString(adminKey);
-      if (meta.adminKeyHash !== computedAdminHash && meta.adminKeyHash !== legacyAdminHash) {
+      if (meta.adminKeyHash !== computedAdminHash) {
         return new Response(JSON.stringify({ error: 'Unauthorized: Invalid admin key' }), { status: 401 });
       }
 
@@ -432,9 +412,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
 
       const computedAdminHash = await hashAdminKey(eventId, providedAdminKey);
-      const legacyAdminHash = await hashString(providedAdminKey);
 
-      if (existingMeta.adminKeyHash !== computedAdminHash && existingMeta.adminKeyHash !== legacyAdminHash) {
+      if (existingMeta.adminKeyHash !== computedAdminHash) {
         return new Response(JSON.stringify({ error: 'Unauthorized: Invalid organizer admin key' }), { status: 401 });
       }
 
@@ -547,9 +526,8 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
 
   const meta = JSON.parse(metaRaw);
   const computedAdminHash = await hashAdminKey(eventId, adminKey);
-  const legacyAdminHash = await hashString(adminKey);
 
-  if (meta.adminKeyHash !== computedAdminHash && meta.adminKeyHash !== legacyAdminHash) {
+  if (meta.adminKeyHash !== computedAdminHash) {
     return new Response(JSON.stringify({ error: 'Unauthorized: Invalid admin key' }), { status: 401 });
   }
 
@@ -562,7 +540,6 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
   const delPromises: Promise<any>[] = [
     context.env.VACAY_KV.delete(`event:${eventId}:meta`),
     context.env.VACAY_KV.delete(`event:${eventId}:participants`),
-    context.env.VACAY_KV.delete(`event_${eventId}`),
   ];
 
   for (const k of partKeys.keys) delPromises.push(context.env.VACAY_KV.delete(k.name));
