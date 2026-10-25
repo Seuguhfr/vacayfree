@@ -295,6 +295,37 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         pinHash: computedHash || existing?.pinHash || participant.pinHash || '',
       };
 
+      // Update participants index key for immediate read-after-write consistency (no waiting for eventual kv.list())
+      let updateIndexPromise = Promise.resolve();
+      try {
+        const partsIndexRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
+        let partsList: any[] = [];
+        if (partsIndexRaw) {
+          try {
+            const parsed = JSON.parse(partsIndexRaw);
+            if (Array.isArray(parsed)) partsList = parsed;
+          } catch {}
+        }
+        const existingIdx = partsList.findIndex((p: any) => p.id === participant.id);
+        const summary = {
+          id: participant.id,
+          eventId,
+          name: participantRecord.name,
+          color: participantRecord.color || 'bg-emerald-600',
+          createdAt: participantRecord.createdAt || new Date().toISOString(),
+        };
+        if (existingIdx >= 0) {
+          partsList[existingIdx] = { ...partsList[existingIdx], ...summary };
+        } else {
+          partsList.push(summary);
+        }
+        updateIndexPromise = context.env.VACAY_KV.put(
+          `event:${eventId}:participants`,
+          JSON.stringify(partsList),
+          { expirationTtl: ttl }
+        );
+      } catch {}
+
       // Atomic independent writes to discrete keys: Zero 429 lock contention!
       await Promise.all([
         context.env.VACAY_KV.put(
@@ -307,6 +338,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           JSON.stringify(response),
           { expirationTtl: ttl }
         ),
+        updateIndexPromise,
       ]);
 
       return new Response(JSON.stringify({ success: true, participantId: participant.id }), {

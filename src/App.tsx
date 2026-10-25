@@ -189,7 +189,27 @@ export default function App() {
       if (document.hidden) return;
       try {
         const fresh = await StorageService.fetchCloudEvent(currentId);
+        // If event was deleted in cloud (404), clean up and redirect home gracefully
+        if (!fresh) {
+          setEventData(null);
+          setCurrentParticipant(null);
+          setIsAdmin(false);
+          setAdminKey(null);
+          window.history.replaceState(null, '', window.location.pathname);
+          setRecentTrips(StorageService.getRecentEventPackages());
+          return;
+        }
+
         if (fresh && fresh.event && fresh.event.id === currentId) {
+          // If current participant was deleted by the organizer on another device:
+          if (currentParticipant && !fresh.participants.some(p => p.id === currentParticipant.id)) {
+            setCurrentParticipant(null);
+            const session = StorageService.getParticipantSession(currentId);
+            if (session?.participantId === currentParticipant.id) {
+              StorageService.saveParticipantSession(currentId, '', '');
+            }
+          }
+
           setEventData((prev) => {
             if (!prev || prev.event.id !== currentId) return fresh;
             const partsChanged =
@@ -212,7 +232,7 @@ export default function App() {
     }, 4000);
 
     return () => clearInterval(interval);
-  }, [eventData?.event?.id]);
+  }, [eventData?.event?.id, currentParticipant]);
 
   // Derived calculations
   const dates = useMemo(() => {
@@ -398,6 +418,10 @@ export default function App() {
     };
     if (currentParticipant?.id === participantId) {
       setCurrentParticipant(null);
+      const session = StorageService.getParticipantSession(eventData.event.id);
+      if (session?.participantId === participantId) {
+        StorageService.saveParticipantSession(eventData.event.id, '', '');
+      }
     }
     setEventData(updated);
     StorageService.saveEvent(updated, false);
