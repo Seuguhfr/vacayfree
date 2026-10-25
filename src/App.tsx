@@ -89,46 +89,53 @@ export default function App() {
       }
     }
 
-    if (data) {
-      setEventData(data);
-      setTargetDuration(data.event.defaultDurationDays || 7);
-      setSelectedWindow(null);
+    if (!data) {
+      // Event not found or was permanently deleted from server: clean up local state & URL
+      StorageService.removeRecentEvent(eventId);
+      setRecentTrips(StorageService.getRecentEventPackages());
+      setEventData(null);
+      window.history.replaceState(null, '', window.location.pathname);
+      return;
+    }
 
-      // Check admin key
-      const storedAdminKey = StorageService.getAdminKey(eventId);
-      const activeAdminKey = adminParam || storedAdminKey;
-      if (activeAdminKey) {
-        const isValid = await StorageService.verifyAdminKey(data.event.id, activeAdminKey, data.event.adminKeyHash);
-        if (isValid) {
-          setIsAdmin(true);
-          setAdminKey(activeAdminKey);
-          StorageService.saveAdminKey(eventId, activeAdminKey);
-        }
+    setEventData(data);
+    setTargetDuration(data.event.defaultDurationDays || 7);
+    setSelectedWindow(null);
+
+    // Check admin key
+    const storedAdminKey = StorageService.getAdminKey(eventId);
+    const activeAdminKey = adminParam || storedAdminKey;
+    if (activeAdminKey) {
+      const isValid = await StorageService.verifyAdminKey(data.event.id, activeAdminKey, data.event.adminKeyHash);
+      if (isValid) {
+        setIsAdmin(true);
+        setAdminKey(activeAdminKey);
+        StorageService.saveAdminKey(eventId, activeAdminKey);
       }
+    }
 
-      // If URL contained an adminParam, scrub it immediately to prevent accidental credential sharing
-      if (adminParam) {
-        const cleanUrl = new URL(window.location.href);
-        cleanUrl.searchParams.delete('admin');
-        const hashParams = new URLSearchParams(cleanUrl.hash.replace(/^#/, ''));
-        if (hashParams.has('admin')) {
-          hashParams.delete('admin');
-          const remainingHash = hashParams.toString();
-          cleanUrl.hash = remainingHash ? `#${remainingHash}` : '';
-        }
-        window.history.replaceState(null, '', cleanUrl.pathname + (cleanUrl.search ? cleanUrl.search : '') + cleanUrl.hash);
+    // If URL contained an adminParam, scrub it immediately to prevent accidental credential sharing
+    if (adminParam) {
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('admin');
+      const hashParams = new URLSearchParams(cleanUrl.hash.replace(/^#/, ''));
+      if (hashParams.has('admin')) {
+        hashParams.delete('admin');
+        const remainingHash = hashParams.toString();
+        cleanUrl.hash = remainingHash ? `#${remainingHash}` : '';
       }
+      window.history.replaceState(null, '', cleanUrl.pathname + (cleanUrl.search ? cleanUrl.search : '') + cleanUrl.hash);
+    }
 
-      // Check active participant session or user param
-      const session = StorageService.getParticipantSession(eventId);
-      const targetUserId = userParam || session?.participantId;
-      if (targetUserId) {
-        const matched = data.participants.find(
-          p => p.id === targetUserId || p.name.toLowerCase() === targetUserId.toLowerCase()
-        );
-        if (matched) {
-          setCurrentParticipant(matched);
-        }
+    // Check active participant session or user param
+    const session = StorageService.getParticipantSession(eventId);
+    const targetUserId = userParam || session?.participantId;
+    if (targetUserId) {
+      const matched = data.participants.find(
+        p => p.id === targetUserId || p.name.toLowerCase() === targetUserId.toLowerCase()
+      );
+      if (matched) {
+        setCurrentParticipant(matched);
       }
     }
   }, []);
@@ -420,9 +427,23 @@ export default function App() {
   const handleDeletePoll = async () => {
     if (!eventData) return;
     const pollId = eventData.event.id;
-    await StorageService.deleteEvent(pollId, adminKey);
+    const key = adminKey;
+
+    // 1. Immediately reset state so background sync loop terminates immediately
+    setEventData(null);
+    setCurrentParticipant(null);
+    setSelectedWindow(null);
+    setIsAdmin(false);
+    setAdminKey(null);
     setIsAdminOpen(false);
-    handleGoHome();
+
+    // 2. Perform deletion in localStorage and Cloudflare KV
+    await StorageService.deleteEvent(pollId, key);
+
+    // 3. Clear URL and update recent trips state
+    window.history.pushState(null, '', window.location.pathname);
+    window.location.hash = '';
+    setRecentTrips(StorageService.getRecentEventPackages());
   };
 
   return (

@@ -55,6 +55,14 @@ export const StorageService = {
   async fetchCloudEvent(eventId: string): Promise<EventDataPackage | null> {
     try {
       const res = await fetch(`/api/event?id=${encodeURIComponent(eventId)}`);
+      if (res.status === 404) {
+        // Explicitly deleted or nonexistent on server: purge any ghost copy from localStorage
+        localStorage.removeItem(`${STORAGE_PREFIX}event_${eventId}`);
+        localStorage.removeItem(`${STORAGE_PREFIX}admin_${eventId}`);
+        localStorage.removeItem(`${STORAGE_PREFIX}session_${eventId}`);
+        this.removeRecentEvent(eventId);
+        return null;
+      }
       if (res.ok) {
         const data = await res.json() as EventDataPackage;
         if (data && data.event && data.event.id) {
@@ -201,7 +209,7 @@ export const StorageService = {
 
   async deleteEvent(eventId: string, adminKey?: string | null): Promise<boolean> {
     try {
-      // 1. Clear local storage keys
+      // 1. Clear local storage keys immediately
       localStorage.removeItem(`${STORAGE_PREFIX}event_${eventId}`);
       localStorage.removeItem(`${STORAGE_PREFIX}admin_${eventId}`);
       localStorage.removeItem(`${STORAGE_PREFIX}session_${eventId}`);
@@ -219,6 +227,13 @@ export const StorageService = {
           }),
         }).catch(() => {});
       }
+
+      // 3. Clear local storage keys again after cloud request to ensure no in-flight sync resurrected it
+      localStorage.removeItem(`${STORAGE_PREFIX}event_${eventId}`);
+      localStorage.removeItem(`${STORAGE_PREFIX}admin_${eventId}`);
+      localStorage.removeItem(`${STORAGE_PREFIX}session_${eventId}`);
+      this.removeRecentEvent(eventId);
+
       return true;
     } catch (e) {
       console.error('Failed to delete event', e);

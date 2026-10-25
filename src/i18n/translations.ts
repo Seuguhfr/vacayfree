@@ -204,6 +204,7 @@ export const fr: TranslationDictionary = {
     `Nouveau code PIN temporaire pour ${name} : ${pin}`,
   dangerZoneTitle: 'Zone de danger',
   deletePollBtn: 'Supprimer définitivement ce sondage',
+  deletingPollBtn: 'Suppression en cours...',
   deletePollConfirm:
     'Êtes-vous sûr de vouloir supprimer définitivement ce sondage et toutes ses données ? Cette action est irréversible.',
 
@@ -436,6 +437,7 @@ export const en: TranslationDictionary = {
     `New temporary PIN for ${name}: ${pin}`,
   dangerZoneTitle: 'Danger Zone',
   deletePollBtn: 'Permanently Delete Trip Poll',
+  deletingPollBtn: 'Deleting...',
   deletePollConfirm:
     'Are you sure you want to permanently delete this poll and all friend responses? This cannot be undone.',
 

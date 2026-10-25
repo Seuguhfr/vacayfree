@@ -16,7 +16,7 @@ interface AdminModalProps {
   onVerifyAdmin: (adminKey: string) => Promise<boolean>;
   onUpdateEvent: (updated: Partial<TripEvent>) => void;
   onDeleteParticipant: (participantId: string) => void;
-  onDeletePoll?: () => void;
+  onDeletePoll?: () => void | Promise<void>;
 }
 
 export const AdminModal: React.FC<AdminModalProps> = ({
@@ -35,6 +35,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [inputKey, setInputKey] = useState('');
   const [keyError, setKeyError] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Editable fields
   const [title, setTitle] = useState(event.title);
@@ -314,14 +315,20 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
+                  disabled={isDeleting}
+                  onClick={async () => {
                     if (window.confirm(t.deletePollConfirm)) {
-                      onDeletePoll();
+                      setIsDeleting(true);
+                      try {
+                        await onDeletePoll();
+                      } finally {
+                        setIsDeleting(false);
+                      }
                     }
                   }}
-                  className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-colors cursor-pointer shrink-0"
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-colors cursor-pointer shrink-0 disabled:opacity-50"
                 >
-                  {t.deletePollBtn}
+                  {isDeleting ? t.deletingPollBtn : t.deletePollBtn}
                 </button>
               </div>
             </div>

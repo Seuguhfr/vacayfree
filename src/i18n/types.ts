@@ -182,6 +182,7 @@ export interface TranslationDictionary {
   tempPinGenerated: (name: string, pin: string) => string;
   dangerZoneTitle: string;
   deletePollBtn: string;
+  deletingPollBtn: string;
   deletePollConfirm: string;
 
   // Day Details Modal
