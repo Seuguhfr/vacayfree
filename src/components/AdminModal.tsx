@@ -44,6 +44,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [endDate, setEndDate] = useState(event.endDate);
   const [isLocked, setIsLocked] = useState(event.isLocked);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [pinResetNotice, setPinResetNotice] = useState<{ name: string; tempPin: string } | null>(null);
 
   const handleVerify = async (e: React.FormEvent) => {
@@ -70,6 +71,19 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
   const handleSaveChanges = (e: React.FormEvent) => {
     e.preventDefault();
+    setSaveError(null);
+    if (!title.trim()) {
+      setSaveError(t.errorTitleRequired);
+      return;
+    }
+    if (!startDate || !endDate) {
+      setSaveError(t.errorDatesRequired);
+      return;
+    }
+    if (startDate >= endDate) {
+      setSaveError(t.errorDateOrder);
+      return;
+    }
     onUpdateEvent({
       title: title.trim(),
       description: description.trim() || undefined,
@@ -167,6 +181,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
           {/* Trip Settings Form */}
           <form onSubmit={handleSaveChanges} className="space-y-3.5">
+            {saveError && (
+              <div className="p-2.5 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg">
+                {saveError}
+              </div>
+            )}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">
                 {t.tripTitleLabel}
