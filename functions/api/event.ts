@@ -23,6 +23,29 @@ async function hashAdminKey(eventId: string, adminKey: string): Promise<string> 
   return hashString(`${eventId}:${adminKey.trim()}:${SALT_PEPPER}`);
 }
 
+/**
+ * Smart Expiration for Cloudflare KV:
+ * Keep the poll alive for the entire planning period and trip,
+ * plus 6 months (180 days) after the latest return date (endDate).
+ * Minimum retention is always 180 days from the current moment.
+ */
+function computeExpiration(endDate?: string): { expiration: number } {
+  const SIX_MONTHS_SEC = 180 * 24 * 60 * 60;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const minExpiration = nowSec + SIX_MONTHS_SEC;
+
+  if (endDate && typeof endDate === 'string') {
+    const endTimestamp = Date.parse(`${endDate.trim()}T23:59:59Z`);
+    if (!isNaN(endTimestamp)) {
+      const endSec = Math.floor(endTimestamp / 1000);
+      const targetExpiration = endSec + SIX_MONTHS_SEC;
+      return { expiration: Math.max(minExpiration, targetExpiration) };
+    }
+  }
+
+  return { expiration: minExpiration };
+}
+
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const url = new URL(context.request.url);
   const eventId = url.searchParams.get('id');
@@ -151,7 +174,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     const payload = JSON.parse(rawBody);
-    const ttl = 60 * 60 * 24 * 90; // 90 days retention
 
     // CASE 1: Server-Side Admin Key Verification
     if (payload.action === 'verify_admin') {
@@ -224,6 +246,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return new Response(JSON.stringify({ error: 'Unauthorized: Invalid admin key' }), { status: 401 });
       }
 
+      const expirationOpts = computeExpiration(meta?.endDate);
+
       const partKey = `event:${eventId}:participant:${participantId}`;
       const pRaw = await context.env.VACAY_KV.get(partKey);
       let p = pRaw ? JSON.parse(pRaw) : null;
@@ -240,7 +264,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       if (p) {
         const pinHash = await hashParticipantPin(eventId, participantId, newPin);
         p.pinHash = pinHash;
-        await context.env.VACAY_KV.put(partKey, JSON.stringify(p), { metadata: p, expirationTtl: ttl });
+        await context.env.VACAY_KV.put(partKey, JSON.stringify(p), { metadata: p, ...expirationOpts });
       }
 
       return new Response(JSON.stringify({ success: true, participantId }), {
@@ -257,12 +281,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
       // Check lock status
       const metaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);
+      let meta: any = null;
       if (metaRaw) {
-        const meta = JSON.parse(metaRaw);
-        if (meta.isLocked) {
-          return new Response(JSON.stringify({ error: 'This poll has been locked by the organizer.' }), { status: 403 });
-        }
+        try {
+          meta = JSON.parse(metaRaw);
+          if (meta.isLocked) {
+            return new Response(JSON.stringify({ error: 'This poll has been locked by the organizer.' }), { status: 403 });
+          }
+        } catch {}
       }
+
+      const expirationOpts = computeExpiration(meta?.endDate);
 
       // Discrete participant lookup: Zero race conditions!
       const partKey = `event:${eventId}:participant:${participant.id}`;
@@ -324,7 +353,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           updateIndexPromise = context.env.VACAY_KV.put(
             `event:${eventId}:participants`,
             JSON.stringify(partsList),
-            { expirationTtl: ttl }
+            expirationOpts
           );
         } catch {}
       }
@@ -334,12 +363,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         context.env.VACAY_KV.put(
           partKey,
           JSON.stringify(participantRecord),
-          { metadata: participantRecord, expirationTtl: ttl }
+          { metadata: participantRecord, ...expirationOpts }
         ),
         context.env.VACAY_KV.put(
           `event:${eventId}:response:${participant.id}`,
           JSON.stringify(response),
-          { expirationTtl: ttl }
+          expirationOpts
         ),
         updateIndexPromise,
       ]);
@@ -407,13 +436,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return new Response(JSON.stringify({ error: 'Unauthorized: Invalid admin key' }), { status: 401 });
       }
 
+      const expirationOpts = computeExpiration(meta?.endDate);
+
       // Delete discrete participant and response keys, and remove from index
       const partsRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
       let updatePartsPromise: Promise<any> = Promise.resolve();
       if (partsRaw) {
         try {
           const parts = JSON.parse(partsRaw).filter((p: any) => p.id !== participantId);
-          updatePartsPromise = context.env.VACAY_KV.put(`event:${eventId}:participants`, JSON.stringify(parts), { expirationTtl: ttl });
+          updatePartsPromise = context.env.VACAY_KV.put(`event:${eventId}:participants`, JSON.stringify(parts), expirationOpts);
         } catch {}
       }
 
@@ -436,10 +467,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     // Check if event already exists in KV
     const existingMetaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);
-
+    let existingMeta: any = null;
     if (existingMetaRaw) {
+      try { existingMeta = JSON.parse(existingMetaRaw); } catch {}
+    }
+
+    const eventEndDate = payload?.event?.endDate || existingMeta?.endDate;
+    const expirationOpts = computeExpiration(eventEndDate);
+
+    if (existingMeta) {
       // Event already exists -> THIS IS AN UPDATE. Require and verify adminKey!
-      const existingMeta = JSON.parse(existingMetaRaw);
       const providedAdminKey = payload.adminKey || payload.event.adminKey;
 
       if (!providedAdminKey) {
@@ -463,7 +500,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       await context.env.VACAY_KV.put(
         `event:${eventId}:meta`,
         JSON.stringify(updatedMeta),
-        { expirationTtl: ttl }
+        expirationOpts
       );
     } else {
       // Event does not exist -> THIS IS A NEW EVENT CREATION.
@@ -478,7 +515,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }),
-        { expirationTtl: ttl }
+        expirationOpts
       );
     }
 
@@ -501,7 +538,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         context.env.VACAY_KV.put(
           `event:${eventId}:participants`,
           JSON.stringify(merged),
-          { expirationTtl: ttl }
+          expirationOpts
         ),
         ...merged.map((p: any) => {
           if (!p?.id) return Promise.resolve();
@@ -509,7 +546,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           return context.env.VACAY_KV!.put(
             partKey,
             JSON.stringify(p),
-            { metadata: p, expirationTtl: ttl }
+            { metadata: p, ...expirationOpts }
           );
         }),
       ]);
@@ -522,7 +559,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           context.env.VACAY_KV!.put(
             `event:${eventId}:response:${r.participantId}`,
             JSON.stringify(r),
-            { expirationTtl: ttl }
+            expirationOpts
           )
         )
       );
