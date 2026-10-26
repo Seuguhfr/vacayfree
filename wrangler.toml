@@ -5,3 +5,8 @@ pages_build_output_dir = "./dist"
 [[kv_namespaces]]
 binding = "VACAY_KV"
 id = "a7468d1943d54096a203aecd01d31963"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "vacay_db"
+database_id = "cf938bcc-5f9f-4952-888a-fd8f0d8ec1b6"

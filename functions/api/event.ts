@@ -1,7 +1,8 @@
 // Cloudflare Pages Function for High-Concurrency, Zero-Collision Group Vacation Sync
-// Backed by Cloudflare KV ("VACAY_KV") with atomic discrete per-participant keys and server-side salted PIN hashing.
+// Backed by Cloudflare D1 ("DB") relational SQLite database with server-side salted PIN hashing.
 
 interface Env {
+  DB: D1Database;
   VACAY_KV?: KVNamespace;
 }
 
@@ -24,12 +25,13 @@ async function hashAdminKey(eventId: string, adminKey: string): Promise<string> 
 }
 
 /**
- * Smart Expiration for Cloudflare KV:
+ * Smart Expiration:
  * Keep the poll alive for the entire planning period and trip,
  * plus 6 months (180 days) after the latest return date (endDate).
  * Minimum retention is always 180 days from the current moment.
+ * Returns UNIX timestamp in seconds.
  */
-function computeExpiration(endDate?: string): { expiration: number } {
+function computeExpiration(endDate?: string): number {
   const SIX_MONTHS_SEC = 180 * 24 * 60 * 60;
   const nowSec = Math.floor(Date.now() / 1000);
   const minExpiration = nowSec + SIX_MONTHS_SEC;
@@ -39,11 +41,11 @@ function computeExpiration(endDate?: string): { expiration: number } {
     if (!isNaN(endTimestamp)) {
       const endSec = Math.floor(endTimestamp / 1000);
       const targetExpiration = endSec + SIX_MONTHS_SEC;
-      return { expiration: Math.max(minExpiration, targetExpiration) };
+      return Math.max(minExpiration, targetExpiration);
     }
   }
 
-  return { expiration: minExpiration };
+  return minExpiration;
 }
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
@@ -57,7 +59,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     });
   }
 
-  if (!context.env.VACAY_KV) {
+  if (!context.env.DB) {
     return new Response(JSON.stringify({ notFound: true, offline: true }), {
       status: 404,
       headers: { 'Content-Type': 'application/json' },
@@ -65,84 +67,67 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
 
   try {
-    // 1. Fetch metadata
-    const metaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);
-    if (!metaRaw) {
+    // 0. Non-blocking lazy cleanup for expired polls
+    context.env.DB.prepare('DELETE FROM events WHERE expires_at < unixepoch()').run().catch(() => {});
+
+    // 1. Fetch event metadata
+    const eventRow = await context.env.DB.prepare('SELECT * FROM events WHERE id = ?').bind(eventId).first<any>();
+    if (!eventRow) {
       return new Response(JSON.stringify({ notFound: true }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    const event = JSON.parse(metaRaw);
-
-    // 2. Concurrently fetch participants using discrete keys + legacy index
-    const [partKeyList, participantsIndexRaw] = await Promise.all([
-      context.env.VACAY_KV.list({ prefix: `event:${eventId}:participant:` }),
-      context.env.VACAY_KV.get(`event:${eventId}:participants`),
+    // 2. Concurrently fetch participants & responses
+    const [partResult, respResult] = await Promise.all([
+      context.env.DB.prepare('SELECT * FROM participants WHERE event_id = ? ORDER BY created_at ASC').bind(eventId).all<any>(),
+      context.env.DB.prepare('SELECT * FROM responses WHERE event_id = ?').bind(eventId).all<any>(),
     ]);
 
-    const participantMap = new Map<string, any>();
-
-    // Load from index if present
-    if (participantsIndexRaw) {
-      try {
-        const list = JSON.parse(participantsIndexRaw);
-        if (Array.isArray(list)) {
-          for (const p of list) {
-            if (p?.id) participantMap.set(p.id, p);
-          }
-        }
-      } catch {}
-    }
-
-    // Load from discrete atomic keys with instant tombstone/deletion detection
-    if (partKeyList.keys && partKeyList.keys.length > 0) {
-      const discreteGets = partKeyList.keys.map(async (k) => {
-        const partId = k.name.replace(`event:${eventId}:participant:`, '');
-        const val = await context.env.VACAY_KV!.get(k.name);
-        return { partId, data: val ? JSON.parse(val) : null };
-      });
-      const fetchedParts = await Promise.all(discreteGets);
-      for (const { partId, data } of fetchedParts) {
-        if (!data) {
-          // Discrete key was deleted -> strongly consistent purge
-          participantMap.delete(partId);
-        } else {
-          participantMap.set(partId, { ...(participantMap.get(partId) || {}), ...data });
-        }
-      }
-    }
-
-    const participants = Array.from(participantMap.values());
-
-    // 3. Concurrently fetch each friend's response independently
-    const responsePromises = participants.map((p: any) =>
-      context.env.VACAY_KV!.get(`event:${eventId}:response:${p.id}`)
-    );
-    const fetchedResponses = await Promise.all(responsePromises);
-    const responses = fetchedResponses
-      .filter((r): r is string => !!r)
-      .map((r) => JSON.parse(r));
-
-    // 4. SECURITY SANITIZATION:
-    // Strip pinHash and adminKeyHash so client DevTools Network inspector never sees hashes!
-    const sanitizedParticipants = participants.map((p: any) => ({
-      ...p,
-      pinHash: '', // Hidden from public network payload
-    }));
-
-    const sanitizedEvent = {
-      ...event,
-      adminKeyHash: '', // Hidden from public network payload
+    // 3. Format & sanitize data (never expose hashes to the client!)
+    const event = {
+      id: eventRow.id,
+      title: eventRow.title,
+      description: eventRow.description || undefined,
+      destinationHint: eventRow.destination_hint || undefined,
+      startDate: eventRow.start_date,
+      endDate: eventRow.end_date,
+      defaultDurationDays: eventRow.default_duration_days,
+      adminKeyHash: '', // Sanitized for client DevTools security
+      isLocked: Boolean(eventRow.is_locked),
+      lockedWindow: (eventRow.locked_start_date && eventRow.locked_end_date) ? {
+        startDate: eventRow.locked_start_date,
+        endDate: eventRow.locked_end_date,
+      } : undefined,
+      createdAt: eventRow.created_at,
+      updatedAt: eventRow.updated_at,
     };
 
+    const participants = (partResult.results || []).map((p: any) => ({
+      id: p.id,
+      eventId: p.event_id,
+      name: p.name,
+      color: p.color,
+      pinHash: '', // Sanitized for client DevTools security
+      createdAt: p.created_at,
+    }));
+
+    const responses = (respResult.results || []).map((r: any) => {
+      let availability = {};
+      try {
+        availability = JSON.parse(r.availability || '{}');
+      } catch {}
+      return {
+        participantId: r.participant_id,
+        eventId: r.event_id,
+        availability,
+        updatedAt: r.updated_at,
+      };
+    });
+
     return new Response(
-      JSON.stringify({
-        event: sanitizedEvent,
-        participants: sanitizedParticipants,
-        responses,
-      }),
+      JSON.stringify({ event, participants, responses }),
       {
         headers: {
           'Content-Type': 'application/json',
@@ -160,8 +145,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 };
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
-  if (!context.env.VACAY_KV) {
-    return new Response(JSON.stringify({ error: 'KV binding VACAY_KV not configured' }), {
+  if (!context.env.DB) {
+    return new Response(JSON.stringify({ error: 'D1 binding DB not configured' }), {
       status: 503,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -182,14 +167,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return new Response(JSON.stringify({ valid: false }), { status: 400 });
       }
 
-      const metaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);
-      if (!metaRaw) {
+      const row = await context.env.DB.prepare('SELECT admin_key_hash FROM events WHERE id = ?').bind(eventId).first<any>();
+      if (!row) {
         return new Response(JSON.stringify({ valid: false }), { status: 404 });
       }
 
-      const meta = JSON.parse(metaRaw);
       const computedAdminHash = await hashAdminKey(eventId, adminKey);
-      const valid = meta.adminKeyHash === computedAdminHash;
+      const valid = row.admin_key_hash === computedAdminHash;
 
       return new Response(JSON.stringify({ valid }), {
         status: valid ? 200 : 401,
@@ -204,25 +188,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return new Response(JSON.stringify({ valid: false }), { status: 400 });
       }
 
-      const partKey = `event:${eventId}:participant:${participantId}`;
-      const pRaw = await context.env.VACAY_KV.get(partKey);
-      let p = pRaw ? JSON.parse(pRaw) : null;
-      if (!p) {
-        const partsIndexRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
-        if (partsIndexRaw) {
-          try {
-            const arr = JSON.parse(partsIndexRaw);
-            p = arr.find((x: any) => x.id === participantId) || null;
-          } catch {}
-        }
-      }
+      const row = await context.env.DB.prepare('SELECT pin_hash FROM participants WHERE event_id = ? AND id = ?')
+        .bind(eventId, participantId)
+        .first<any>();
 
-      if (!p) {
+      if (!row) {
         return new Response(JSON.stringify({ valid: false }), { status: 404 });
       }
 
       const computedPinHash = await hashParticipantPin(eventId, participantId, pin);
-      const valid = !p.pinHash || p.pinHash === computedPinHash;
+      const valid = !row.pin_hash || row.pin_hash === computedPinHash;
 
       return new Response(JSON.stringify({ valid }), {
         status: valid ? 200 : 401,
@@ -237,42 +212,25 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return new Response(JSON.stringify({ error: 'Missing parameters' }), { status: 400 });
       }
 
-      const metaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);
-      if (!metaRaw) return new Response(JSON.stringify({ notFound: true }), { status: 404 });
+      const eventRow = await context.env.DB.prepare('SELECT admin_key_hash FROM events WHERE id = ?').bind(eventId).first<any>();
+      if (!eventRow) return new Response(JSON.stringify({ notFound: true }), { status: 404 });
 
-      const meta = JSON.parse(metaRaw);
       const computedAdminHash = await hashAdminKey(eventId, adminKey);
-      if (meta.adminKeyHash !== computedAdminHash) {
+      if (eventRow.admin_key_hash !== computedAdminHash) {
         return new Response(JSON.stringify({ error: 'Unauthorized: Invalid admin key' }), { status: 401 });
       }
 
-      const expirationOpts = computeExpiration(meta?.endDate);
-
-      const partKey = `event:${eventId}:participant:${participantId}`;
-      const pRaw = await context.env.VACAY_KV.get(partKey);
-      let p = pRaw ? JSON.parse(pRaw) : null;
-      if (!p) {
-        const partsIndexRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
-        if (partsIndexRaw) {
-          try {
-            const arr = JSON.parse(partsIndexRaw);
-            p = arr.find((x: any) => x.id === participantId) || null;
-          } catch {}
-        }
-      }
-
-      if (p) {
-        const pinHash = await hashParticipantPin(eventId, participantId, newPin);
-        p.pinHash = pinHash;
-        await context.env.VACAY_KV.put(partKey, JSON.stringify(p), { metadata: p, ...expirationOpts });
-      }
+      const newPinHash = await hashParticipantPin(eventId, participantId, newPin);
+      await context.env.DB.prepare('UPDATE participants SET pin_hash = ? WHERE event_id = ? AND id = ?')
+        .bind(newPinHash, eventId, participantId)
+        .run();
 
       return new Response(JSON.stringify({ success: true, participantId }), {
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    // CASE 4: Concurrency-Safe Participant Delta Save (Atomic Discrete Keys!)
+    // CASE 4: Concurrency-Safe Participant Delta Save
     if (payload.action === 'save_response') {
       const { eventId, participant, response, pin } = payload;
       if (!eventId || !participant?.id || !response || !ID_REGEX.test(eventId)) {
@@ -280,97 +238,46 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
 
       // Check lock status
-      const metaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);
-      let meta: any = null;
-      if (metaRaw) {
-        try {
-          meta = JSON.parse(metaRaw);
-          if (meta.isLocked) {
-            return new Response(JSON.stringify({ error: 'This poll has been locked by the organizer.' }), { status: 403 });
-          }
-        } catch {}
+      const eventRow = await context.env.DB.prepare('SELECT is_locked FROM events WHERE id = ?').bind(eventId).first<any>();
+      if (eventRow && eventRow.is_locked) {
+        return new Response(JSON.stringify({ error: 'This poll has been locked by the organizer.' }), { status: 403 });
       }
 
-      const expirationOpts = computeExpiration(meta?.endDate);
-
-      // Discrete participant lookup: Zero race conditions!
-      const partKey = `event:${eventId}:participant:${participant.id}`;
-      const existingRaw = await context.env.VACAY_KV.get(partKey);
-      let existing = existingRaw ? JSON.parse(existingRaw) : null;
-
-      if (!existing) {
-        const partsIndexRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
-        if (partsIndexRaw) {
-          try {
-            const arr = JSON.parse(partsIndexRaw);
-            existing = arr.find((p: any) => p.id === participant.id) || null;
-          } catch {}
-        }
-      }
+      // Participant lookup & PIN check
+      const existingPart = await context.env.DB.prepare('SELECT pin_hash FROM participants WHERE event_id = ? AND id = ?')
+        .bind(eventId, participant.id)
+        .first<any>();
 
       const computedHash = pin ? await hashParticipantPin(eventId, participant.id, pin) : '';
 
-      if (existing) {
-        // Enforce PIN validation if returning user
-        if (existing.pinHash && existing.pinHash !== computedHash) {
-          return new Response(JSON.stringify({ error: 'Incorrect PIN' }), { status: 401 });
-        }
+      if (existingPart && existingPart.pin_hash && existingPart.pin_hash !== computedHash) {
+        return new Response(JSON.stringify({ error: 'Incorrect PIN' }), { status: 401 });
       }
 
-      const participantRecord = {
-        ...(existing || {}),
-        ...participant,
-        name: (participant.name || 'Friend').slice(0, 50),
-        pinHash: computedHash || existing?.pinHash || participant.pinHash || '',
-      };
+      const finalPinHash = computedHash || existingPart?.pin_hash || participant.pinHash || '';
+      const partName = (participant.name || 'Friend').slice(0, 50);
+      const partColor = participant.color || 'bg-emerald-600';
+      const createdAt = participant.createdAt || new Date().toISOString();
+      const updatedAt = response.updatedAt || new Date().toISOString();
+      const availabilityJson = JSON.stringify(response.availability || {});
 
-      // Update participants index key ONLY if this is a new participant or name changed.
-      // This prevents KV 429 rate limit contention (1 write/sec to same key) during rapid availability voting!
-      let updateIndexPromise: Promise<any> = Promise.resolve();
-      if (!existing || existing.name !== participantRecord.name) {
-        try {
-          const partsIndexRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
-          let partsList: any[] = [];
-          if (partsIndexRaw) {
-            try {
-              const parsed = JSON.parse(partsIndexRaw);
-              if (Array.isArray(parsed)) partsList = parsed;
-            } catch {}
-          }
-          const existingIdx = partsList.findIndex((p: any) => p.id === participant.id);
-          const summary = {
-            id: participant.id,
-            eventId,
-            name: participantRecord.name,
-            color: participantRecord.color || 'bg-emerald-600',
-            createdAt: participantRecord.createdAt || new Date().toISOString(),
-          };
-          if (existingIdx >= 0) {
-            partsList[existingIdx] = { ...partsList[existingIdx], ...summary };
-          } else {
-            partsList.push(summary);
-          }
-          updateIndexPromise = context.env.VACAY_KV.put(
-            `event:${eventId}:participants`,
-            JSON.stringify(partsList),
-            expirationOpts
-          );
-        } catch {}
-      }
-
-      // Atomic independent writes to discrete keys: Zero 429 lock contention!
-      await Promise.all([
-        context.env.VACAY_KV.put(
-          partKey,
-          JSON.stringify(participantRecord),
-          { metadata: participantRecord, ...expirationOpts }
-        ),
-        context.env.VACAY_KV.put(
-          `event:${eventId}:response:${participant.id}`,
-          JSON.stringify(response),
-          expirationOpts
-        ),
-        updateIndexPromise,
+      // Atomic batch write in SQLite!
+      await context.env.DB.batch([
+        context.env.DB.prepare(`
+          INSERT INTO participants (id, event_id, name, color, pin_hash, created_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+          ON CONFLICT(event_id, id) DO UPDATE SET
+            name = excluded.name,
+            color = excluded.color,
+            pin_hash = CASE WHEN excluded.pin_hash != '' THEN excluded.pin_hash ELSE participants.pin_hash END
+        `).bind(participant.id, eventId, partName, partColor, finalPinHash, createdAt),
+        context.env.DB.prepare(`
+          INSERT INTO responses (event_id, participant_id, availability, updated_at)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(event_id, participant_id) DO UPDATE SET
+            availability = excluded.availability,
+            updated_at = excluded.updated_at
+        `).bind(eventId, participant.id, availabilityJson, updatedAt),
       ]);
 
       return new Response(JSON.stringify({ success: true, participantId: participant.id }), {
@@ -385,33 +292,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return new Response(JSON.stringify({ error: 'Missing event ID or admin key' }), { status: 400 });
       }
 
-      const metaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);
-      if (!metaRaw) {
+      const eventRow = await context.env.DB.prepare('SELECT admin_key_hash FROM events WHERE id = ?').bind(eventId).first<any>();
+      if (!eventRow) {
         return new Response(JSON.stringify({ notFound: true }), { status: 404 });
       }
 
-      const meta = JSON.parse(metaRaw);
       const computedAdminHash = await hashAdminKey(eventId, adminKey);
-
-      if (meta.adminKeyHash !== computedAdminHash) {
+      if (eventRow.admin_key_hash !== computedAdminHash) {
         return new Response(JSON.stringify({ error: 'Unauthorized: Invalid admin key' }), { status: 401 });
       }
 
-      // Cleanly purge all discrete participant and response keys
-      const [partKeys, respKeys] = await Promise.all([
-        context.env.VACAY_KV.list({ prefix: `event:${eventId}:participant:` }),
-        context.env.VACAY_KV.list({ prefix: `event:${eventId}:response:` }),
-      ]);
-
-      const delPromises: Promise<any>[] = [
-        context.env.VACAY_KV.delete(`event:${eventId}:meta`),
-        context.env.VACAY_KV.delete(`event:${eventId}:participants`),
-      ];
-
-      for (const k of partKeys.keys) delPromises.push(context.env.VACAY_KV.delete(k.name));
-      for (const k of respKeys.keys) delPromises.push(context.env.VACAY_KV.delete(k.name));
-
-      await Promise.all(delPromises);
+      // Foreign key CASCADE automatically purges participants and responses!
+      await context.env.DB.prepare('DELETE FROM events WHERE id = ?').bind(eventId).run();
 
       return new Response(JSON.stringify({ success: true, deleted: eventId }), {
         headers: { 'Content-Type': 'application/json' },
@@ -425,34 +317,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return new Response(JSON.stringify({ error: 'Missing parameters' }), { status: 400 });
       }
 
-      const metaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);
-      if (!metaRaw) {
+      const eventRow = await context.env.DB.prepare('SELECT admin_key_hash FROM events WHERE id = ?').bind(eventId).first<any>();
+      if (!eventRow) {
         return new Response(JSON.stringify({ notFound: true }), { status: 404 });
       }
 
-      const meta = JSON.parse(metaRaw);
       const computedAdminHash = await hashAdminKey(eventId, adminKey);
-      if (meta.adminKeyHash !== computedAdminHash) {
+      if (eventRow.admin_key_hash !== computedAdminHash) {
         return new Response(JSON.stringify({ error: 'Unauthorized: Invalid admin key' }), { status: 401 });
       }
 
-      const expirationOpts = computeExpiration(meta?.endDate);
-
-      // Delete discrete participant and response keys, and remove from index
-      const partsRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
-      let updatePartsPromise: Promise<any> = Promise.resolve();
-      if (partsRaw) {
-        try {
-          const parts = JSON.parse(partsRaw).filter((p: any) => p.id !== participantId);
-          updatePartsPromise = context.env.VACAY_KV.put(`event:${eventId}:participants`, JSON.stringify(parts), expirationOpts);
-        } catch {}
-      }
-
-      await Promise.all([
-        context.env.VACAY_KV.delete(`event:${eventId}:participant:${participantId}`),
-        context.env.VACAY_KV.delete(`event:${eventId}:response:${participantId}`),
-        updatePartsPromise,
-      ]);
+      // Foreign key CASCADE automatically deletes response!
+      await context.env.DB.prepare('DELETE FROM participants WHERE event_id = ? AND id = ?').bind(eventId, participantId).run();
 
       return new Response(JSON.stringify({ success: true, removed: participantId }), {
         headers: { 'Content-Type': 'application/json' },
@@ -465,104 +341,132 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       return new Response(JSON.stringify({ error: 'Invalid payload: missing or invalid event id' }), { status: 400 });
     }
 
-    // Check if event already exists in KV
-    const existingMetaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);
-    let existingMeta: any = null;
-    if (existingMetaRaw) {
-      try { existingMeta = JSON.parse(existingMetaRaw); } catch {}
-    }
+    const existingEvent = await context.env.DB.prepare('SELECT * FROM events WHERE id = ?').bind(eventId).first<any>();
 
-    const eventEndDate = payload?.event?.endDate || existingMeta?.endDate;
-    const expirationOpts = computeExpiration(eventEndDate);
-
-    if (existingMeta) {
+    if (existingEvent) {
       // Event already exists -> THIS IS AN UPDATE. Require and verify adminKey!
-      const providedAdminKey = payload.adminKey || payload.event.adminKey;
-
+      const providedAdminKey = payload.adminKey || payload.event?.adminKey;
       if (!providedAdminKey) {
         return new Response(JSON.stringify({ error: 'Unauthorized: Missing organizer admin key to update poll settings' }), { status: 401 });
       }
 
       const computedAdminHash = await hashAdminKey(eventId, providedAdminKey);
-
-      if (existingMeta.adminKeyHash !== computedAdminHash) {
+      if (existingEvent.admin_key_hash !== computedAdminHash) {
         return new Response(JSON.stringify({ error: 'Unauthorized: Invalid organizer admin key' }), { status: 401 });
       }
 
-      // Update event metadata while preserving the authoritative adminKeyHash
-      const updatedMeta = {
-        ...existingMeta,
-        ...payload.event,
-        adminKeyHash: existingMeta.adminKeyHash, // Never overwrite the secret hash
-        updatedAt: new Date().toISOString(),
-      };
+      const targetEndDate = payload.event.endDate || existingEvent.end_date;
+      const expiresAt = computeExpiration(targetEndDate);
+      const updatedAt = new Date().toISOString();
 
-      await context.env.VACAY_KV.put(
-        `event:${eventId}:meta`,
-        JSON.stringify(updatedMeta),
-        expirationOpts
-      );
+      await context.env.DB.prepare(`
+        UPDATE events SET
+          title = ?,
+          description = ?,
+          destination_hint = ?,
+          start_date = ?,
+          end_date = ?,
+          default_duration_days = ?,
+          is_locked = ?,
+          locked_start_date = ?,
+          locked_end_date = ?,
+          updated_at = ?,
+          expires_at = ?
+        WHERE id = ?
+      `).bind(
+        payload.event.title || existingEvent.title,
+        payload.event.description !== undefined ? payload.event.description : existingEvent.description,
+        payload.event.destinationHint !== undefined ? payload.event.destinationHint : existingEvent.destination_hint,
+        payload.event.startDate || existingEvent.start_date,
+        targetEndDate,
+        payload.event.defaultDurationDays || existingEvent.default_duration_days,
+        payload.event.isLocked !== undefined ? (payload.event.isLocked ? 1 : 0) : existingEvent.is_locked,
+        payload.event.lockedWindow?.startDate || null,
+        payload.event.lockedWindow?.endDate || null,
+        updatedAt,
+        expiresAt,
+        eventId
+      ).run();
     } else {
       // Event does not exist -> THIS IS A NEW EVENT CREATION.
-      if (!payload.event.adminKeyHash) {
+      if (!payload.event?.adminKeyHash) {
         return new Response(JSON.stringify({ error: 'Invalid event creation: missing adminKeyHash' }), { status: 400 });
       }
 
-      await context.env.VACAY_KV.put(
-        `event:${eventId}:meta`,
-        JSON.stringify({
-          ...payload.event,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }),
-        expirationOpts
-      );
-    }
+      const expiresAt = computeExpiration(payload.event.endDate);
+      const nowIso = new Date().toISOString();
 
-    // Save participants as discrete atomic keys AND index
-    if (payload.participants && Array.isArray(payload.participants)) {
-      const existingRaw = await context.env.VACAY_KV.get(`event:${eventId}:participants`);
-      let merged = payload.participants;
-      if (existingRaw) {
-        try {
-          const existingList = JSON.parse(existingRaw);
-          if (Array.isArray(existingList)) {
-            const map = new Map<string, any>();
-            for (const p of existingList) map.set(p.id, p);
-            for (const p of payload.participants) map.set(p.id, { ...(map.get(p.id) || {}), ...p });
-            merged = Array.from(map.values());
-          }
-        } catch {}
-      }
-      await Promise.all([
-        context.env.VACAY_KV.put(
-          `event:${eventId}:participants`,
-          JSON.stringify(merged),
-          expirationOpts
-        ),
-        ...merged.map((p: any) => {
-          if (!p?.id) return Promise.resolve();
-          const partKey = `event:${eventId}:participant:${p.id}`;
-          return context.env.VACAY_KV!.put(
-            partKey,
-            JSON.stringify(p),
-            { metadata: p, ...expirationOpts }
-          );
-        }),
-      ]);
-    }
-
-    // Save any individual responses
-    if (payload.responses && Array.isArray(payload.responses)) {
-      await Promise.all(
-        payload.responses.map((r: any) =>
-          context.env.VACAY_KV!.put(
-            `event:${eventId}:response:${r.participantId}`,
-            JSON.stringify(r),
-            expirationOpts
-          )
+      const batchStatements = [
+        context.env.DB.prepare(`
+          INSERT INTO events (
+            id, title, description, destination_hint, start_date, end_date,
+            default_duration_days, admin_key_hash, is_locked,
+            locked_start_date, locked_end_date, created_at, updated_at, expires_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          eventId,
+          payload.event.title,
+          payload.event.description || null,
+          payload.event.destinationHint || null,
+          payload.event.startDate,
+          payload.event.endDate,
+          payload.event.defaultDurationDays || 7,
+          payload.event.adminKeyHash,
+          payload.event.isLocked ? 1 : 0,
+          payload.event.lockedWindow?.startDate || null,
+          payload.event.lockedWindow?.endDate || null,
+          payload.event.createdAt || nowIso,
+          payload.event.updatedAt || nowIso,
+          expiresAt
         )
-      );
+      ];
+
+      // Insert participants if supplied
+      if (Array.isArray(payload.participants)) {
+        for (const p of payload.participants) {
+          if (!p?.id) continue;
+          batchStatements.push(
+            context.env.DB.prepare(`
+              INSERT INTO participants (id, event_id, name, color, pin_hash, created_at)
+              VALUES (?, ?, ?, ?, ?, ?)
+              ON CONFLICT(event_id, id) DO UPDATE SET
+                name = excluded.name,
+                color = excluded.color,
+                pin_hash = excluded.pin_hash
+            `).bind(
+              p.id,
+              eventId,
+              (p.name || 'Friend').slice(0, 50),
+              p.color || 'bg-emerald-600',
+              p.pinHash || '',
+              p.createdAt || nowIso
+            )
+          );
+        }
+      }
+
+      // Insert responses if supplied
+      if (Array.isArray(payload.responses)) {
+        for (const r of payload.responses) {
+          if (!r?.participantId) continue;
+          batchStatements.push(
+            context.env.DB.prepare(`
+              INSERT INTO responses (event_id, participant_id, availability, updated_at)
+              VALUES (?, ?, ?, ?)
+              ON CONFLICT(event_id, participant_id) DO UPDATE SET
+                availability = excluded.availability,
+                updated_at = excluded.updated_at
+            `).bind(
+              eventId,
+              r.participantId,
+              JSON.stringify(r.availability || {}),
+              r.updatedAt || nowIso
+            )
+          );
+        }
+      }
+
+      await context.env.DB.batch(batchStatements);
     }
 
     return new Response(JSON.stringify({ success: true, eventId }), {
@@ -570,9 +474,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal Server Error';
-    const isQuota = message.toLowerCase().includes('limit exceeded') || message.includes('429') || message.toLowerCase().includes('too many requests');
-    return new Response(JSON.stringify({ error: isQuota ? 'rate_limited' : message, message }), {
-      status: isQuota ? 429 : 500,
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
   }
@@ -583,41 +486,26 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
   const eventId = url.searchParams.get('id');
   const adminKey = url.searchParams.get('admin');
 
-  if (!context.env.VACAY_KV) {
-    return new Response(JSON.stringify({ error: 'KV not configured' }), { status: 503 });
+  if (!context.env.DB) {
+    return new Response(JSON.stringify({ error: 'DB not configured' }), { status: 503 });
   }
 
   if (!eventId || !adminKey || !ID_REGEX.test(eventId)) {
     return new Response(JSON.stringify({ error: 'Missing or invalid event ID or admin key' }), { status: 400 });
   }
 
-  const metaRaw = await context.env.VACAY_KV.get(`event:${eventId}:meta`);
-  if (!metaRaw) {
+  const eventRow = await context.env.DB.prepare('SELECT admin_key_hash FROM events WHERE id = ?').bind(eventId).first<any>();
+  if (!eventRow) {
     return new Response(JSON.stringify({ notFound: true }), { status: 404 });
   }
 
-  const meta = JSON.parse(metaRaw);
   const computedAdminHash = await hashAdminKey(eventId, adminKey);
-
-  if (meta.adminKeyHash !== computedAdminHash) {
+  if (eventRow.admin_key_hash !== computedAdminHash) {
     return new Response(JSON.stringify({ error: 'Unauthorized: Invalid admin key' }), { status: 401 });
   }
 
-  // Purge all discrete participant and response keys
-  const [partKeys, respKeys] = await Promise.all([
-    context.env.VACAY_KV.list({ prefix: `event:${eventId}:participant:` }),
-    context.env.VACAY_KV.list({ prefix: `event:${eventId}:response:` }),
-  ]);
-
-  const delPromises: Promise<any>[] = [
-    context.env.VACAY_KV.delete(`event:${eventId}:meta`),
-    context.env.VACAY_KV.delete(`event:${eventId}:participants`),
-  ];
-
-  for (const k of partKeys.keys) delPromises.push(context.env.VACAY_KV.delete(k.name));
-  for (const k of respKeys.keys) delPromises.push(context.env.VACAY_KV.delete(k.name));
-
-  await Promise.all(delPromises);
+  // Cascade delete in SQLite
+  await context.env.DB.prepare('DELETE FROM events WHERE id = ?').bind(eventId).run();
 
   return new Response(JSON.stringify({ success: true, deleted: eventId }), {
     headers: { 'Content-Type': 'application/json' },
