@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { format } from 'date-fns';
 import {
   TripEvent,
   Participant,
   ParticipantResponse,
+  DayAvailability,
   DaySummary,
   TripWindow,
   AvailabilityStatus,
@@ -345,9 +347,25 @@ export default function App() {
 
     const isNew = !eventData.participants.some(part => part.id === p.id);
     if (isNew) {
+      // Pre-populate with all dates in the trip range marked available by default
+      const allDates = getDatesInRange(eventData.event.startDate, eventData.event.endDate);
+      const initialAvailability: Record<string, DayAvailability> = {};
+      for (const d of allDates) {
+        const dStr = format(d, 'yyyy-MM-dd');
+        initialAvailability[dStr] = { date: dStr, status: 'available' };
+      }
+
+      const newResponse: ParticipantResponse = {
+        participantId: p.id,
+        eventId: eventData.event.id,
+        availability: initialAvailability,
+        updatedAt: new Date().toISOString(),
+      };
+
       const updatedPackage: EventDataPackage = {
         ...eventData,
         participants: [...eventData.participants, p],
+        responses: [...eventData.responses, newResponse],
       };
       setEventData(updatedPackage);
       StorageService.saveEvent(updatedPackage, false);
@@ -356,12 +374,7 @@ export default function App() {
       await StorageService.saveParticipantResponseDelta(
         eventData.event.id,
         p,
-        {
-          participantId: p.id,
-          eventId: eventData.event.id,
-          availability: {},
-          updatedAt: new Date().toISOString(),
-        },
+        newResponse,
         session?.pin || ''
       );
     }

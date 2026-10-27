@@ -22,6 +22,7 @@ import {
   Check,
   CheckCircle2,
   HelpCircle,
+  XCircle,
   RotateCcw,
   Users,
 } from 'lucide-react';
@@ -42,6 +43,27 @@ interface CalendarGridProps {
 const WEEKDAYS_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const WEEKDAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
+function buildInitialAvailability(
+  startDateStr: string,
+  endDateStr: string,
+  existing?: Record<string, { date: string; status: AvailabilityStatus; note?: string }>
+): Record<string, { date: string; status: AvailabilityStatus; note?: string }> {
+  const result: Record<string, { date: string; status: AvailabilityStatus; note?: string }> = {};
+  if (startDateStr && endDateStr) {
+    try {
+      const start = parseISO(startDateStr);
+      const end = parseISO(endDateStr);
+      const cur = new Date(start);
+      while (cur <= end) {
+        const k = format(cur, 'yyyy-MM-dd');
+        result[k] = { date: k, status: 'available' };
+        cur.setDate(cur.getDate() + 1);
+      }
+    } catch {}
+  }
+  return { ...result, ...(existing || {}) };
+}
+
 export const CalendarGrid: React.FC<CalendarGridProps> = ({
   startDateStr,
   endDateStr,
@@ -58,9 +80,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   // View mode tab: 'paint' (personal painter) vs 'heatmap' (overall group calendar)
   const [viewTab, setViewTab] = useState<'paint' | 'heatmap'>(currentParticipant ? 'paint' : 'heatmap');
   const isPaintMode = !!currentParticipant && viewTab === 'paint';
-  const [brushTool, setBrushTool] = useState<'available' | 'maybe' | 'note'>('available');
-  const [localAvail, setLocalAvail] = useState<Record<string, { date: string; status: AvailabilityStatus; note?: string }>>(
-    myResponse?.availability || {}
+  const [brushTool, setBrushTool] = useState<'available' | 'maybe' | 'busy' | 'note'>('available');
+  const [localAvail, setLocalAvail] = useState<Record<string, { date: string; status: AvailabilityStatus; note?: string }>>(() =>
+    buildInitialAvailability(startDateStr, endDateStr, myResponse?.availability)
   );
   const [isDirty, setIsDirty] = useState(false);
   const isPointerDown = useRef(false);
@@ -94,9 +116,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   // Sync when participant or response changes, preserving uncommitted brushstrokes
   React.useEffect(() => {
     if (!isDirty) {
-      setLocalAvail(myResponse?.availability || {});
+      setLocalAvail(buildInitialAvailability(startDateStr, endDateStr, myResponse?.availability));
     }
-  }, [myResponse, currentParticipant, isDirty]);
+  }, [myResponse, currentParticipant, isDirty, startDateStr, endDateStr]);
 
   const [quotaExceeded, setQuotaExceeded] = useState(false);
 
@@ -134,15 +156,18 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
       setNoteModal({
         isOpen: true,
         dateStr: dateKey,
-        status: myDay?.status || 'busy',
+        status: myDay?.status || 'available',
         note: myDay?.note || '',
       });
       return;
     }
     isPointerDown.current = true;
-    const curStatus = localAvail[dateKey]?.status || 'busy';
-    // If cell is already on the brush state, toggle it back to 'busy'; otherwise set to brushTool
-    const nextStatus: AvailabilityStatus = curStatus === brushTool ? 'busy' : brushTool;
+    const curStatus = localAvail[dateKey]?.status || 'available';
+    // If cell already matches the active brushTool, toggle it off:
+    // If brush is 'available', toggling off sets it to 'busy'.
+    // If brush is 'busy' or 'maybe', toggling off restores it to 'available'.
+    const toggleOffStatus: AvailabilityStatus = brushTool === 'available' ? 'busy' : 'available';
+    const nextStatus: AvailabilityStatus = curStatus === brushTool ? toggleOffStatus : brushTool;
     activeDragStatus.current = nextStatus;
     paintDay(dateKey, nextStatus);
   };
@@ -202,7 +227,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   };
 
   const handleReset = () => {
-    setLocalAvail(myResponse?.availability || {});
+    setLocalAvail(buildInitialAvailability(startDateStr, endDateStr, myResponse?.availability));
     setIsDirty(false);
   };
 
@@ -281,6 +306,18 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                   >
                     <HelpCircle className="w-3.5 h-3.5" />
                     <span>{t.brushMaybe}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBrushTool('busy')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                      brushTool === 'busy'
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-xs ring-2 ring-rose-500/20'
+                        : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
+                    }`}
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    <span>{t.brushBusy}</span>
                   </button>
                   <button
                     type="button"
@@ -443,7 +480,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                   // If in PAINT MODE
                   if (isPaintMode) {
                     const myDay = localAvail[dateKey];
-                    const status = myDay?.status || 'busy';
+                    const status = myDay?.status || 'available';
                     const hasNote = !!myDay?.note && myDay.note.trim().length > 0;
 
                     let bgClass = 'bg-zinc-100 text-zinc-700 border-zinc-200';

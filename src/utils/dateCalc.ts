@@ -71,7 +71,7 @@ export function calculateDaySummaries(
     for (const p of participants) {
       const pAvailMap = responseMap.get(p.id);
       const dayAvail = pAvailMap?.[dateKey];
-      const status: AvailabilityStatus = dayAvail?.status || 'busy';
+      const status: AvailabilityStatus = dayAvail?.status || 'available';
 
       if (status === 'available') {
         availableCount++;
@@ -167,7 +167,7 @@ export function calculateTripWindows(
 
       // Check each participant status
       for (const p of participants) {
-        const pStatus = responseMap.get(p.id)?.[dateKey]?.status || 'busy';
+        const pStatus = responseMap.get(p.id)?.[dateKey]?.status || 'available';
         if (pStatus === 'busy') {
           const count = participantBusyDays.get(p.id) || 0;
           participantBusyDays.set(p.id, count + 1);

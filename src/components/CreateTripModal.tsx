@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { format } from 'date-fns';
 import { Modal } from './ui/Modal';
-import { TripEvent, Participant } from '../types';
+import { TripEvent, Participant, ParticipantResponse, DayAvailability } from '../types';
 import { hashAdminKey, hashParticipantPin, generateRandomId } from '../utils/security';
 import { getParticipantColor } from '../utils/colors';
+import { getDatesInRange } from '../utils/dateCalc';
 import { StorageService } from '../services/storage';
 import { useTranslation } from '../i18n/LanguageContext';
 import { Calendar, Users, Clock, Sparkles } from 'lucide-react';
@@ -117,10 +119,24 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       participants.push(creatorParticipant);
       StorageService.saveParticipantSession(eventId, participantId, cleanPin);
 
+      // Pre-fill creator availability with all slots available by default
+      const allDates = getDatesInRange(startDate, endDate);
+      const initialAvailability: Record<string, DayAvailability> = {};
+      for (const d of allDates) {
+        const dStr = format(d, 'yyyy-MM-dd');
+        initialAvailability[dStr] = { date: dStr, status: 'available' };
+      }
+      const creatorResponse: ParticipantResponse = {
+        participantId,
+        eventId,
+        availability: initialAvailability,
+        updatedAt: new Date().toISOString(),
+      };
+
       StorageService.saveEvent({
         event,
         participants,
-        responses: [],
+        responses: [creatorResponse],
       });
       StorageService.saveAdminKey(eventId, adminKey);
 
